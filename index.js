@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const { CohereClient } = require('cohere-ai');
 const fs = require('fs');
 require('dotenv').config();
@@ -48,8 +49,10 @@ async function runPolarooBot() {
     botStatus.logs.push(`${new Date().toISOString()}: Starting browser`);
     io.emit('bot-update', botStatus);
 
-    // Launch browser - puppeteer includes Chrome
-    browser = await puppeteer.launch({
+    // Launch browser with cloud-optimized Chrome
+    const isCloud = process.env.NODE_ENV === 'production';
+    
+    const launchOptions = {
       headless: true,
       args: [
         '--no-sandbox',
@@ -59,10 +62,22 @@ async function runPolarooBot() {
         '--no-first-run',
         '--no-zygote',
         '--single-process',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
       ]
-    });
-    
+    };
+
+    if (isCloud) {
+      // Use cloud-optimized Chrome for production
+      launchOptions.executablePath = await chromium.executablePath();
+      botStatus.logs.push(`${new Date().toISOString()}: Using cloud Chrome: ${launchOptions.executablePath}`);
+    } else {
+      // Use local Chrome for development
+      botStatus.logs.push(`${new Date().toISOString()}: Using local Chrome`);
+    }
+
+    browser = await puppeteer.launch(launchOptions);
     botStatus.logs.push(`${new Date().toISOString()}: Browser launched successfully`);
     
     page = await browser.newPage();
@@ -75,7 +90,7 @@ async function runPolarooBot() {
     // Navigate to Polaroo
     await page.goto('https://polaroo.com', { waitUntil: 'networkidle2' });
 
-   // Use Cohere to analyze the page and find login elements
+    // Use Cohere to analyze the page and find login elements
     botStatus.currentStep = 'Analyzing page with Cohere AI...';
     botStatus.logs.push(`${new Date().toISOString()}: Analyzing page with Cohere AI`);
     io.emit('bot-update', botStatus);
