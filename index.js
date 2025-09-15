@@ -18,7 +18,9 @@ const io = socketIo(server, {
 const PORT = process.env.PORT || 3000;
 
 // Initialize Cohere
-cohere.init(process.env.COHERE_API_KEY);
+if (process.env.COHERE_API_KEY) {
+  cohere.init(process.env.COHERE_API_KEY);
+}
 
 // Middleware
 app.use(cors());
@@ -60,27 +62,71 @@ async function runPolarooBot() {
     // Navigate to Polaroo
     await page.goto('https://polaroo.com', { waitUntil: 'networkidle2' });
 
-    // Look for login button/link
+    // Use Cohere to analyze the page and find login elements
+    botStatus.currentStep = 'Analyzing page with Cohere AI...';
+    botStatus.logs.push(`${new Date().toISOString()}: Analyzing page with Cohere AI`);
+    io.emit('bot-update', botStatus);
+
+    // Get page content for Cohere analysis
+    const pageContent = await page.content();
+    const pageText = await page.evaluate(() => document.body.innerText);
+    
+    let loginStrategy = 'direct';
+    if (process.env.COHERE_API_KEY) {
+      try {
+        const response = await cohere.generate({
+          model: 'command',
+          prompt: `Analyze this webpage content and determine the best way to find and click the login button. Look for login links, buttons, or navigation elements. Return only the CSS selector or XPath that would work best.
+
+Webpage content: ${pageText.substring(0, 2000)}
+
+Common login selectors to consider:
+- a[href*="login"]
+- button:contains("Login") 
+- a:contains("Sign in")
+- [data-testid*="login"]
+- .login, #login
+- nav a[href*="signin"]
+- header a[href*="login"]
+
+Return the best selector:`,
+          max_tokens: 50,
+          temperature: 0.1
+        });
+        
+        loginStrategy = response.generations[0].text.trim();
+        botStatus.logs.push(`${new Date().toISOString()}: Cohere suggested: ${loginStrategy}`);
+      } catch (error) {
+        botStatus.logs.push(`${new Date().toISOString()}: Cohere analysis failed, using fallback`);
+      }
+    }
+
+    // Try to find and click login button
     botStatus.currentStep = 'Looking for login button...';
     botStatus.logs.push(`${new Date().toISOString()}: Looking for login button`);
     io.emit('bot-update', botStatus);
 
-    // Try to find and click login button
     const loginSelectors = [
       'a[href*="login"]',
+      'a[href*="signin"]', 
       'button:contains("Login")',
+      'button:contains("Sign in")',
+      'a:contains("Login")',
       'a:contains("Sign in")',
       '[data-testid*="login"]',
       '.login',
-      '#login'
+      '#login',
+      'nav a[href*="login"]',
+      'header a[href*="login"]'
     ];
 
     let loginClicked = false;
     for (const selector of loginSelectors) {
       try {
-        await page.waitForSelector(selector, { timeout: 2000 });
+        await page.waitForSelector(selector, { timeout: 3000 });
         await page.click(selector);
         loginClicked = true;
+        botStatus.logs.push(`${new Date().toISOString()}: Clicked login with selector: ${selector}`);
         break;
       } catch (e) {
         continue;
@@ -89,6 +135,7 @@ async function runPolarooBot() {
 
     if (!loginClicked) {
       // Try direct navigation to login page
+      botStatus.logs.push(`${new Date().toISOString()}: No login button found, trying direct navigation`);
       await page.goto('https://app.polaroo.com/login', { waitUntil: 'networkidle2' });
     }
 
@@ -96,14 +143,63 @@ async function runPolarooBot() {
     botStatus.logs.push(`${new Date().toISOString()}: Filling login credentials`);
     io.emit('bot-update', botStatus);
 
-    // Wait for login form and fill credentials
-    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"]', { timeout: 10000 });
+    // Wait for login form and analyze with Cohere
+    botStatus.currentStep = 'Analyzing login form with Cohere...';
+    botStatus.logs.push(`${new Date().toISOString()}: Analyzing login form`);
+    io.emit('bot-update', botStatus);
+
+    // Wait for form to load
+    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', { timeout: 15000 });
+    
+    // Use Cohere to find the best selectors for email and password fields
+    let emailSelector = 'input[type="email"], input[name="email"], input[id="email"]';
+    let passwordSelector = 'input[type="password"], input[name="password"], input[id="password"]';
+    
+    if (process.env.COHERE_API_KEY) {
+      try {
+        const formHTML = await page.evaluate(() => {
+          const forms = document.querySelectorAll('form');
+          return Array.from(forms).map(form => form.outerHTML).join('\n');
+        });
+        
+        const response = await cohere.generate({
+          model: 'command',
+          prompt: `Analyze this login form HTML and return the best CSS selectors for email and password fields. Return in format: email:selector,password:selector
+
+Form HTML: ${formHTML.substring(0, 1500)}
+
+Common patterns:
+- input[type="email"]
+- input[name="email"] 
+- input[id="email"]
+- input[type="password"]
+- input[name="password"]
+- input[id="password"]
+
+Return format: email:selector,password:selector`,
+          max_tokens: 100,
+          temperature: 0.1
+        });
+        
+        const cohereResult = response.generations[0].text.trim();
+        if (cohereResult.includes('email:') && cohereResult.includes('password:')) {
+          const [emailPart, passwordPart] = cohereResult.split(',');
+          emailSelector = emailPart.split(':')[1]?.trim() || emailSelector;
+          passwordSelector = passwordPart.split(':')[1]?.trim() || passwordSelector;
+          botStatus.logs.push(`${new Date().toISOString()}: Cohere selectors - Email: ${emailSelector}, Password: ${passwordSelector}`);
+        }
+      } catch (error) {
+        botStatus.logs.push(`${new Date().toISOString()}: Cohere form analysis failed, using defaults`);
+      }
+    }
     
     // Fill email
-    await page.type('input[type="email"], input[name="email"], input[id="email"]', process.env.POLAROO_EMAIL);
+    await page.type(emailSelector, process.env.POLAROO_EMAIL, { delay: 100 });
+    botStatus.logs.push(`${new Date().toISOString()}: Filled email field`);
     
-    // Fill password
-    await page.type('input[type="password"], input[name="password"], input[id="password"]', process.env.POLAROO_PASSWORD);
+    // Fill password  
+    await page.type(passwordSelector, process.env.POLAROO_PASSWORD, { delay: 100 });
+    botStatus.logs.push(`${new Date().toISOString()}: Filled password field`);
 
     botStatus.currentStep = 'Submitting login form...';
     botStatus.logs.push(`${new Date().toISOString()}: Submitting login form`);
