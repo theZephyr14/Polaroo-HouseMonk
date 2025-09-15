@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const cohere = require('cohere-ai');
 require('dotenv').config();
 
@@ -49,6 +49,7 @@ async function runPolarooBot() {
     // Launch browser
     browser = await puppeteer.launch({
       headless: true,
+      executablePath: '/usr/bin/google-chrome-stable',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
