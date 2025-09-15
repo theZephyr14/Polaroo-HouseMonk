@@ -283,6 +283,7 @@
         <div class="controls">
             <button class="btn" id="startBtn" onclick="startBot()">Start Bot</button>
             <button class="btn" id="refreshBtn" onclick="refreshStatus()">Refresh Status</button>
+            <button class="btn" id="testPopupBtn" onclick="testPopup()">Test Popup</button>
         </div>
     </div>
 
@@ -415,8 +416,12 @@
                 botActionCoordinates.style.display = 'none';
             }
             
+            // Ensure popup is visible
+            botActionPopup.style.display = 'block';
             botActionPopup.classList.remove('hide');
             botActionPopup.classList.add('show');
+            
+            console.log('Showing bot action popup:', { icon, title, details, url, coordinates });
         }
         
         function hideBotAction() {
@@ -432,41 +437,46 @@
         function updateStatusWithPopup(data) {
             updateStatus(data);
             
-            // Show popup for specific actions
-            if (data.actionDetails) {
-                showBotAction(
-                    data.actionDetails.icon,
-                    data.actionDetails.title,
-                    data.actionDetails.details,
-                    data.actionDetails.url,
-                    data.actionDetails.coordinates
-                );
-                
-                // Auto-hide popup after 3 seconds
-                setTimeout(hideBotAction, 3000);
-            } else if (data.currentStep) {
-                // Fallback to old method if no actionDetails
-                if (data.currentStep.includes('Navigating')) {
-                    showBotAction('🌐', 'Navigation', data.currentStep, 'https://polaroo.com');
-                } else if (data.currentStep.includes('Clicking') || data.currentStep.includes('Looking for login')) {
-                    showBotAction('🖱️', 'Clicking', data.currentStep);
-                } else if (data.currentStep.includes('Filling') || data.currentStep.includes('Typing')) {
-                    showBotAction('📝', 'Form Input', data.currentStep);
-                } else if (data.currentStep.includes('Analyzing')) {
-                    showBotAction('🧠', 'AI Analysis', data.currentStep);
-                } else if (data.currentStep.includes('Starting browser')) {
-                    showBotAction('🚀', 'Browser Launch', data.currentStep);
-                } else if (data.currentStep.includes('Successfully')) {
-                    showBotAction('✅', 'Success', data.currentStep);
-                } else if (data.currentStep.includes('ERROR')) {
-                    showBotAction('❌', 'Error', data.currentStep);
+            // Always show popup when there's a current step
+            if (data.currentStep) {
+                // Use actionDetails if available, otherwise fallback to currentStep analysis
+                if (data.actionDetails) {
+                    showBotAction(
+                        data.actionDetails.icon,
+                        data.actionDetails.title,
+                        data.actionDetails.details,
+                        data.actionDetails.url,
+                        data.actionDetails.coordinates
+                    );
                 } else {
-                    showBotAction('🤖', 'Bot Action', data.currentStep);
+                    // Fallback to currentStep analysis
+                    if (data.currentStep.includes('Navigating') || data.currentStep.includes('Loading')) {
+                        showBotAction('🌐', 'Navigation', data.currentStep, 'https://polaroo.com');
+                    } else if (data.currentStep.includes('Clicking') || data.currentStep.includes('Looking for login') || data.currentStep.includes('Searching')) {
+                        showBotAction('🖱️', 'Clicking', data.currentStep);
+                    } else if (data.currentStep.includes('Filling') || data.currentStep.includes('Typing') || data.currentStep.includes('credentials')) {
+                        showBotAction('📝', 'Form Input', data.currentStep);
+                    } else if (data.currentStep.includes('Analyzing') || data.currentStep.includes('Cohere')) {
+                        showBotAction('🧠', 'AI Analysis', data.currentStep);
+                    } else if (data.currentStep.includes('Starting browser') || data.currentStep.includes('Browser')) {
+                        showBotAction('🚀', 'Browser Launch', data.currentStep);
+                    } else if (data.currentStep.includes('Successfully') || data.currentStep.includes('Success')) {
+                        showBotAction('✅', 'Success', data.currentStep);
+                    } else if (data.currentStep.includes('ERROR') || data.currentStep.includes('Error')) {
+                        showBotAction('❌', 'Error', data.currentStep);
+                    } else {
+                        showBotAction('🤖', 'Bot Action', data.currentStep);
+                    }
                 }
                 
-                // Auto-hide popup after 3 seconds
-                setTimeout(hideBotAction, 3000);
+                // Auto-hide popup after 4 seconds
+                setTimeout(hideBotAction, 4000);
             }
+        }
+
+        // Test popup function
+        function testPopup() {
+            showBotAction('🧪', 'Test Popup', 'This is a test popup to verify the display is working correctly', 'https://test.com', 'x: 100, y: 200');
         }
 
         // Initial status load

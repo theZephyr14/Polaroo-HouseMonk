@@ -270,45 +270,69 @@ Return the best selector:`,
     botStatus.logs.push(`${new Date().toISOString()}: Analyzing login form`);
     io.emit('bot-update', botStatus);
 
-    // Wait for form to load with multiple attempts
+    // Wait for form to load with Cloudflare protection handling
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting for login form to load...`);
-    try {
-      await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 15000 });
-      botStatus.logs.push(`${new Date().toISOString()}: ✅ Login form detected with email field`);
-    } catch (error) {
-      botStatus.logs.push(`${new Date().toISOString()}: ❌ Email field not found: ${error.message}`);
-      botStatus.logs.push(`${new Date().toISOString()}: 🔍 Trying to find any input field...`);
+    
+    // Check if Cloudflare Turnstile is present
+    const hasCloudflare = await page.evaluate(() => {
+      return document.querySelector('[name="cf-turnstile-response"]') !== null;
+    });
+    
+    if (hasCloudflare) {
+      botStatus.logs.push(`${new Date().toISOString()}: 🛡️ Cloudflare Turnstile detected - waiting for protection to complete...`);
+      botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting up to 30 seconds for Cloudflare to complete...`);
+      
+      // Wait for Cloudflare to complete and form to appear
       try {
-        await page.waitForSelector('input', { timeout: 10000 });
-        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found input fields on page`);
+        await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 30000 });
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Cloudflare completed - login form detected`);
+      } catch (error) {
+        botStatus.logs.push(`${new Date().toISOString()}: ⚠️ Cloudflare timeout - trying alternative approach...`);
         
-        // Analyze the actual form structure
-        botStatus.logs.push(`${new Date().toISOString()}: 🔍 Analyzing form structure...`);
-        const formAnalysis = await page.evaluate(() => {
-          const inputs = document.querySelectorAll('input');
-          const forms = document.querySelectorAll('form');
-          return {
-            inputCount: inputs.length,
-            formCount: forms.length,
-            inputTypes: Array.from(inputs).map(input => ({
-              type: input.type,
-              name: input.name,
-              id: input.id,
-              placeholder: input.placeholder,
-              className: input.className
-            })),
-            formHTML: Array.from(forms).map(form => form.outerHTML)
-          };
-        });
-        
-        botStatus.logs.push(`${new Date().toISOString()}: 📊 Form analysis: ${formAnalysis.inputCount} inputs, ${formAnalysis.formCount} forms`);
-        botStatus.logs.push(`${new Date().toISOString()}: 📋 Input details: ${JSON.stringify(formAnalysis.inputTypes, null, 2)}`);
-        
-      } catch (error2) {
-        botStatus.logs.push(`${new Date().toISOString()}: ❌ No input fields found: ${error2.message}`);
-        throw new Error('Login form not found');
+        // Try to wait for any visible input fields
+        await page.waitForSelector('input:not([type="hidden"])', { timeout: 10000 });
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found visible input fields after Cloudflare`);
+      }
+    } else {
+      // Normal form detection
+      try {
+        await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 15000 });
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Login form detected with email field`);
+      } catch (error) {
+        botStatus.logs.push(`${new Date().toISOString()}: ❌ Email field not found: ${error.message}`);
+        botStatus.logs.push(`${new Date().toISOString()}: 🔍 Trying to find any input field...`);
+        try {
+          await page.waitForSelector('input', { timeout: 10000 });
+          botStatus.logs.push(`${new Date().toISOString()}: ✅ Found input fields on page`);
+        } catch (error2) {
+          botStatus.logs.push(`${new Date().toISOString()}: ❌ No input fields found: ${error2.message}`);
+          throw new Error('Login form not found');
+        }
       }
     }
+    
+    // Analyze the actual form structure
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Analyzing form structure...`);
+    const formAnalysis = await page.evaluate(() => {
+      const inputs = document.querySelectorAll('input');
+      const forms = document.querySelectorAll('form');
+      return {
+        inputCount: inputs.length,
+        formCount: forms.length,
+        inputTypes: Array.from(inputs).map(input => ({
+          type: input.type,
+          name: input.name,
+          id: input.id,
+          placeholder: input.placeholder,
+          className: input.className,
+          visible: input.offsetParent !== null
+        })),
+        formHTML: Array.from(forms).map(form => form.outerHTML)
+      };
+    });
+    
+    botStatus.logs.push(`${new Date().toISOString()}: 📊 Form analysis: ${formAnalysis.inputCount} inputs, ${formAnalysis.formCount} forms`);
+    botStatus.logs.push(`${new Date().toISOString()}: 📋 Input details: ${JSON.stringify(formAnalysis.inputTypes, null, 2)}`);
     
     // Use Cohere to find the best selectors for email and password fields
     let emailSelector = 'input[type="email"], input[name="email"], input[id="email"]';
