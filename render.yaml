@@ -16,4 +16,6 @@ services:
         value: francisco@node-living.com
       - key: POLAROO_PASSWORD
         value: Aribau126!
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /opt/render/project/src/node_modules/puppeteer/.local-chromium/linux-*/chrome-linux*/chrome
     healthCheckPath: /

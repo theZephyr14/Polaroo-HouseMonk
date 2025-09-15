@@ -4,6 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const puppeteer = require('puppeteer-core');
 const { CohereClient } = require('cohere-ai');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -47,12 +48,51 @@ async function runPolarooBot() {
     botStatus.logs.push(`${new Date().toISOString()}: Starting browser`);
     io.emit('bot-update', botStatus);
 
-    // Launch browser
-    browser = await puppeteer.launch({
+    // Launch browser with flexible Chrome detection
+    const launchOptions = {
       headless: true,
-      executablePath: '/usr/bin/google-chrome-stable',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    };
+
+    // Try different Chrome paths for different environments
+    const chromePaths = [
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/opt/google/chrome/chrome',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Windows
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe' // Windows 32-bit
+    ];
+
+    // Find the first available Chrome executable
+    let chromePath = null;
+    for (const path of chromePaths) {
+      if (path && fs.existsSync(path)) {
+        chromePath = path;
+        break;
+      }
+    }
+
+    if (chromePath) {
+      launchOptions.executablePath = chromePath;
+      botStatus.logs.push(`${new Date().toISOString()}: Using Chrome at: ${chromePath}`);
+    } else {
+      botStatus.logs.push(`${new Date().toISOString()}: No Chrome found, letting Puppeteer auto-detect`);
+    }
+
+    browser = await puppeteer.launch(launchOptions);
     
     page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
