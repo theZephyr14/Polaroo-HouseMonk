@@ -3,7 +3,7 @@ const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const puppeteer = require('puppeteer-core');
-const cohere = require('cohere-ai');
+const { CohereClient } = require('cohere-ai');
 require('dotenv').config();
 
 const app = express();
@@ -18,8 +18,9 @@ const io = socketIo(server, {
 const PORT = process.env.PORT || 3000;
 
 // Initialize Cohere
+let cohereClient = null;
 if (process.env.COHERE_API_KEY) {
-  cohere.init(process.env.COHERE_API_KEY);
+  cohereClient = new CohereClient({ apiKey: process.env.COHERE_API_KEY });
 }
 
 // Middleware
@@ -63,7 +64,7 @@ async function runPolarooBot() {
     // Navigate to Polaroo
     await page.goto('https://polaroo.com', { waitUntil: 'networkidle2' });
 
-    // Use Cohere to analyze the page and find login elements
+   // Use Cohere to analyze the page and find login elements
     botStatus.currentStep = 'Analyzing page with Cohere AI...';
     botStatus.logs.push(`${new Date().toISOString()}: Analyzing page with Cohere AI`);
     io.emit('bot-update', botStatus);
@@ -73,9 +74,9 @@ async function runPolarooBot() {
     const pageText = await page.evaluate(() => document.body.innerText);
     
     let loginStrategy = 'direct';
-    if (process.env.COHERE_API_KEY) {
+    if (cohereClient) {
       try {
-        const response = await cohere.generate({
+        const response = await cohereClient.generate({
           model: 'command',
           prompt: `Analyze this webpage content and determine the best way to find and click the login button. Look for login links, buttons, or navigation elements. Return only the CSS selector or XPath that would work best.
 
@@ -156,14 +157,14 @@ Return the best selector:`,
     let emailSelector = 'input[type="email"], input[name="email"], input[id="email"]';
     let passwordSelector = 'input[type="password"], input[name="password"], input[id="password"]';
     
-    if (process.env.COHERE_API_KEY) {
+    if (cohereClient) {
       try {
         const formHTML = await page.evaluate(() => {
           const forms = document.querySelectorAll('form');
           return Array.from(forms).map(form => form.outerHTML).join('\n');
         });
         
-        const response = await cohere.generate({
+        const response = await cohereClient.generate({
           model: 'command',
           prompt: `Analyze this login form HTML and return the best CSS selectors for email and password fields. Return in format: email:selector,password:selector
 
