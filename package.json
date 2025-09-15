@@ -2,10 +2,13 @@
   "name": "calculator-app",
   "version": "1.0.0",
   "description": "Simple calculator web app",
-  "main": "index.html",
+  "main": "index.js",
   "scripts": {
-    "build": "echo 'Static HTML - no build needed'",
-    "start": "echo 'Use Docker: docker-compose up'"
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
   },
   "engines": {
     "node": ">=18.0.0"
