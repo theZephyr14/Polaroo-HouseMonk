@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
-const { CohereClient } = require('cohere-ai');
+// Cohere removed - not needed for login
 const fs = require('fs');
 const XLSX = require('xlsx');
 require('dotenv').config();
@@ -20,18 +20,7 @@ const io = socketIo(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize Cohere
-let cohereClient = null;
-if (process.env.COHERE_API_KEY && process.env.COHERE_API_KEY !== 'your_cohere_api_key_here') {
-  try {
-    cohereClient = new CohereClient({ apiKey: process.env.COHERE_API_KEY });
-    console.log('Cohere client initialized successfully');
-  } catch (error) {
-    console.log('Failed to initialize Cohere client:', error.message);
-  }
-} else {
-  console.log('No valid Cohere API key found - using fallback mode');
-}
+// Cohere completely removed - bot works without AI
 
 // Middleware
 app.use(cors());
@@ -189,8 +178,36 @@ async function runPolarooBot() {
     };
     io.emit('bot-update', botStatus);
 
-    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', { timeout: 15000 });
-    botStatus.logs.push(`${new Date().toISOString()}: ✅ Found email field!`);
+    // Try multiple selectors for email field
+    let emailSelector = null;
+    const emailSelectors = [
+      'input[type="email"]',
+      'input[name="email"]', 
+      'input[id="email"]',
+      'input[placeholder*="email" i]',
+      'input[placeholder*="Email" i]',
+      'input[placeholder*="username" i]',
+      'input[placeholder*="Username" i]',
+      'input[type="text"]'
+    ];
+    
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Trying to find email field with multiple selectors...`);
+    
+    for (const selector of emailSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 3000 });
+        emailSelector = selector;
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found email field with selector: ${selector}`);
+        break;
+      } catch (e) {
+        botStatus.logs.push(`${new Date().toISOString()}: ❌ Selector failed: ${selector}`);
+      }
+    }
+    
+    if (!emailSelector) {
+      throw new Error('Could not find email field with any selector');
+    }
+    
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the email field...`);
     await page.waitForTimeout(5000); // 5 second pause
 
@@ -207,14 +224,23 @@ async function runPolarooBot() {
     };
     io.emit('bot-update', botStatus);
 
-    await page.type('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', process.env.POLAROO_EMAIL, { delay: 200 });
+    await page.type(emailSelector, process.env.POLAROO_EMAIL, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Email field filled successfully`);
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the filled email...`);
     await page.waitForTimeout(5000); // 5 second pause
     
-    // Find and highlight the password field
+    // Try multiple selectors for password field
+    let passwordSelector = null;
+    const passwordSelectors = [
+      'input[type="password"]',
+      'input[name="password"]',
+      'input[id="password"]',
+      'input[placeholder*="password" i]',
+      'input[placeholder*="Password" i]'
+    ];
+    
     botStatus.currentStep = 'Looking for password field...';
-    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Looking for password field...`);
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Looking for password field with multiple selectors...`);
     botStatus.actionDetails = {
       type: 'searching',
       icon: '🔍',
@@ -225,8 +251,21 @@ async function runPolarooBot() {
     };
     io.emit('bot-update', botStatus);
 
-    await page.waitForSelector('input[type="password"], input[name="password"], input[id="password"]', { timeout: 15000 });
-    botStatus.logs.push(`${new Date().toISOString()}: ✅ Found password field!`);
+    for (const selector of passwordSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 3000 });
+        passwordSelector = selector;
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found password field with selector: ${selector}`);
+        break;
+      } catch (e) {
+        botStatus.logs.push(`${new Date().toISOString()}: ❌ Selector failed: ${selector}`);
+      }
+    }
+    
+    if (!passwordSelector) {
+      throw new Error('Could not find password field with any selector');
+    }
+    
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the password field...`);
     await page.waitForTimeout(5000); // 5 second pause
 
@@ -243,7 +282,7 @@ async function runPolarooBot() {
     };
     io.emit('bot-update', botStatus);
 
-    await page.type('input[type="password"], input[name="password"], input[id="password"]', process.env.POLAROO_PASSWORD, { delay: 200 });
+    await page.type(passwordSelector, process.env.POLAROO_PASSWORD, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Password field filled successfully`);
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the filled password...`);
     await page.waitForTimeout(5000); // 5 second pause
