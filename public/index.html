@@ -184,17 +184,18 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             color: white;
-            padding: 20px;
+            padding: 25px;
             border-radius: 15px;
-            border: 2px solid #007bff;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            z-index: 2000;
-            max-width: 400px;
+            border: 3px solid #007bff;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+            z-index: 9999;
+            max-width: 450px;
             text-align: center;
             display: none;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-weight: bold;
         }
 
         .bot-action-popup.show {
@@ -283,7 +284,6 @@
         <div class="controls">
             <button class="btn" id="startBtn" onclick="startBot()">Start Bot</button>
             <button class="btn" id="refreshBtn" onclick="refreshStatus()">Refresh Status</button>
-            <button class="btn" id="testPopupBtn" onclick="testPopup()">Test Popup</button>
         </div>
     </div>
 
@@ -474,10 +474,6 @@
             }
         }
 
-        // Test popup function
-        function testPopup() {
-            showBotAction('🧪', 'Test Popup', 'This is a test popup to verify the display is working correctly', 'https://test.com', 'x: 100, y: 200');
-        }
 
         // Initial status load
         refreshStatus();

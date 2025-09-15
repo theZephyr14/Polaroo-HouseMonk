@@ -6,6 +6,7 @@ const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 const { CohereClient } = require('cohere-ai');
 const fs = require('fs');
+const XLSX = require('xlsx');
 require('dotenv').config();
 
 const app = express();
@@ -44,6 +45,27 @@ let botStatus = {
   logs: [],
   error: null
 };
+
+// Read Excel file to get first property name
+function getFirstPropertyName() {
+  try {
+    const workbook = XLSX.readFile('Book1.xlsx');
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+    
+    if (data.length > 0) {
+      const firstRow = data[0];
+      // Look for property name in common column names
+      const propertyName = firstRow['Property Name'] || firstRow['Property'] || firstRow['Name'] || firstRow['Address'] || Object.values(firstRow)[0];
+      return propertyName;
+    }
+    return 'Default Property';
+  } catch (error) {
+    console.log('Error reading Excel file:', error.message);
+    return 'Default Property';
+  }
+}
 
 // Bot functionality
 async function runPolarooBot() {
@@ -132,126 +154,24 @@ async function runPolarooBot() {
       botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully loaded app.polaroo.com`);
     }
 
-    // Use Cohere to analyze the page and find login elements
-    botStatus.currentStep = 'Analyzing page with Cohere AI...';
-    botStatus.logs.push(`${new Date().toISOString()}: 🧠 Starting Cohere AI analysis...`);
-    io.emit('bot-update', botStatus);
-
-    // Get page content for Cohere analysis
-    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Extracting page content...`);
-    const pageContent = await page.content();
-    const pageText = await page.evaluate(() => document.body.innerText);
-    botStatus.logs.push(`${new Date().toISOString()}: 📄 Page content extracted: ${pageContent.length} chars HTML, ${pageText.length} chars text`);
-    
-    let loginStrategy = 'direct';
-    if (cohereClient) {
-      try {
-        botStatus.logs.push(`${new Date().toISOString()}: 📤 Sending page content to Cohere API (${pageText.length} chars)...`);
-        botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting for Cohere response...`);
-        
-        const response = await cohereClient.generate({
-          model: 'command',
-          prompt: `Analyze this webpage content and determine the best way to find and click the login button. Look for login links, buttons, or navigation elements. Return only the CSS selector or XPath that would work best.
-
-Webpage content: ${pageText.substring(0, 2000)}
-
-Common login selectors to consider:
-- a[href*="login"]
-- button:contains("Login") 
-- a:contains("Sign in")
-- [data-testid*="login"]
-- .login, #login
-- nav a[href*="signin"]
-- header a[href*="login"]
-
-Return the best selector:`,
-          max_tokens: 50,
-          temperature: 0.1
-        });
-        
-        if (response && response.generations && response.generations[0]) {
-          loginStrategy = response.generations[0].text.trim();
-          botStatus.logs.push(`${new Date().toISOString()}: ✅ Cohere AI suggested selector: "${loginStrategy}"`);
-        } else {
-          botStatus.logs.push(`${new Date().toISOString()}: ⚠️ Cohere returned empty response - using fallback`);
-        }
-      } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: ❌ Cohere analysis failed: ${error.message}`);
-        botStatus.logs.push(`${new Date().toISOString()}: 🔄 Switching to fallback strategy (hardcoded selectors)`);
-      }
-    } else {
-      botStatus.logs.push(`${new Date().toISOString()}: ⚠️ No Cohere client available - using fallback strategy`);
-    }
-
-    // Try to find and click login button
-    botStatus.currentStep = 'Looking for login button...';
-    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Searching for login button...`);
+    // Navigate directly to login page (no Cohere needed)
+    botStatus.currentStep = 'Navigating to login page...';
+    botStatus.logs.push(`${new Date().toISOString()}: 🔗 Navigating directly to login page...`);
     botStatus.actionDetails = {
-      type: 'clicking',
-      icon: '🖱️',
-      title: 'Clicking',
-      details: 'Searching for login button...',
-      url: null,
+      type: 'navigation',
+      icon: '🌐',
+      title: 'Navigation',
+      details: 'Going to login page...',
+      url: 'https://app.polaroo.com/login',
       coordinates: null
     };
     io.emit('bot-update', botStatus);
 
-    const loginSelectors = [
-      'a[href*="login"]',
-      'a[href*="signin"]', 
-      'button:contains("Login")',
-      'button:contains("Sign in")',
-      'a:contains("Login")',
-      'a:contains("Sign in")',
-      '[data-testid*="login"]',
-      '.login',
-      '#login',
-      'nav a[href*="login"]',
-      'header a[href*="login"]'
-    ];
-
-    botStatus.logs.push(`${new Date().toISOString()}: 📋 Testing ${loginSelectors.length} login selectors...`);
-    let loginClicked = false;
-    for (let i = 0; i < loginSelectors.length; i++) {
-      const selector = loginSelectors[i];
-      try {
-        botStatus.logs.push(`${new Date().toISOString()}: ⏳ Testing selector ${i + 1}/${loginSelectors.length}: "${selector}"`);
-        await page.waitForSelector(selector, { timeout: 3000 });
-        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found login element with selector: "${selector}"`);
-        await page.click(selector);
-        loginClicked = true;
-        botStatus.logs.push(`${new Date().toISOString()}: 🖱️ Successfully clicked login button!`);
-        break;
-      } catch (e) {
-        botStatus.logs.push(`${new Date().toISOString()}: ❌ Selector "${selector}" not found: ${e.message}`);
-        continue;
-      }
-    }
-
-    if (!loginClicked) {
-      // Try direct navigation to login page
-      botStatus.logs.push(`${new Date().toISOString()}: No login button found, trying direct navigation`);
-      try {
-        await page.goto('https://app.polaroo.com/login', { 
-          waitUntil: 'domcontentloaded',
-          timeout: 30000 
-        });
-        botStatus.logs.push(`${new Date().toISOString()}: Successfully navigated to login page`);
-      } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: Failed to navigate to login page: ${error.message}`);
-        // Try alternative login URL
-        try {
-          await page.goto('https://polaroo.com/login', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 30000 
-          });
-          botStatus.logs.push(`${new Date().toISOString()}: Successfully navigated to alternative login page`);
-        } catch (error2) {
-          botStatus.logs.push(`${new Date().toISOString()}: All login page attempts failed: ${error2.message}`);
-          throw new Error('Unable to access login page');
-        }
-      }
-    }
+    await page.goto('https://app.polaroo.com/login', { 
+      waitUntil: 'domcontentloaded',
+      timeout: 30000 
+    });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully loaded login page`);
 
     botStatus.currentStep = 'Filling login credentials...';
     botStatus.logs.push(`${new Date().toISOString()}: Filling login credentials`);
@@ -270,122 +190,19 @@ Return the best selector:`,
     botStatus.logs.push(`${new Date().toISOString()}: Analyzing login form`);
     io.emit('bot-update', botStatus);
 
-    // Wait for form to load with Cloudflare protection handling
+    // Wait for form to load
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting for login form to load...`);
+    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', { timeout: 15000 });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Login form detected`);
     
-    // Check if Cloudflare Turnstile is present
-    const hasCloudflare = await page.evaluate(() => {
-      return document.querySelector('[name="cf-turnstile-response"]') !== null;
-    });
-    
-    if (hasCloudflare) {
-      botStatus.logs.push(`${new Date().toISOString()}: 🛡️ Cloudflare Turnstile detected - waiting for protection to complete...`);
-      botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting up to 30 seconds for Cloudflare to complete...`);
-      
-      // Wait for Cloudflare to complete and form to appear
-      try {
-        await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 30000 });
-        botStatus.logs.push(`${new Date().toISOString()}: ✅ Cloudflare completed - login form detected`);
-      } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: ⚠️ Cloudflare timeout - trying alternative approach...`);
-        
-        // Try to wait for any visible input fields
-        await page.waitForSelector('input:not([type="hidden"])', { timeout: 10000 });
-        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found visible input fields after Cloudflare`);
-      }
-    } else {
-      // Normal form detection
-      try {
-        await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 15000 });
-        botStatus.logs.push(`${new Date().toISOString()}: ✅ Login form detected with email field`);
-      } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: ❌ Email field not found: ${error.message}`);
-        botStatus.logs.push(`${new Date().toISOString()}: 🔍 Trying to find any input field...`);
-        try {
-          await page.waitForSelector('input', { timeout: 10000 });
-          botStatus.logs.push(`${new Date().toISOString()}: ✅ Found input fields on page`);
-        } catch (error2) {
-          botStatus.logs.push(`${new Date().toISOString()}: ❌ No input fields found: ${error2.message}`);
-          throw new Error('Login form not found');
-        }
-      }
-    }
-    
-    // Analyze the actual form structure
-    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Analyzing form structure...`);
-    const formAnalysis = await page.evaluate(() => {
-      const inputs = document.querySelectorAll('input');
-      const forms = document.querySelectorAll('form');
-      return {
-        inputCount: inputs.length,
-        formCount: forms.length,
-        inputTypes: Array.from(inputs).map(input => ({
-          type: input.type,
-          name: input.name,
-          id: input.id,
-          placeholder: input.placeholder,
-          className: input.className,
-          visible: input.offsetParent !== null
-        })),
-        formHTML: Array.from(forms).map(form => form.outerHTML)
-      };
-    });
-    
-    botStatus.logs.push(`${new Date().toISOString()}: 📊 Form analysis: ${formAnalysis.inputCount} inputs, ${formAnalysis.formCount} forms`);
-    botStatus.logs.push(`${new Date().toISOString()}: 📋 Input details: ${JSON.stringify(formAnalysis.inputTypes, null, 2)}`);
-    
-    // Use Cohere to find the best selectors for email and password fields
-    let emailSelector = 'input[type="email"], input[name="email"], input[id="email"]';
-    let passwordSelector = 'input[type="password"], input[name="password"], input[id="password"]';
-    
-    if (cohereClient) {
-      try {
-        const formHTML = await page.evaluate(() => {
-          const forms = document.querySelectorAll('form');
-          return Array.from(forms).map(form => form.outerHTML).join('\n');
-        });
-        
-        const response = await cohereClient.generate({
-          model: 'command',
-          prompt: `Analyze this login form HTML and return the best CSS selectors for email and password fields. Return in format: email:selector,password:selector
-
-Form HTML: ${formHTML.substring(0, 1500)}
-
-Common patterns:
-- input[type="email"]
-- input[name="email"] 
-- input[id="email"]
-- input[type="password"]
-- input[name="password"]
-- input[id="password"]
-
-Return format: email:selector,password:selector`,
-          max_tokens: 100,
-          temperature: 0.1
-        });
-        
-        const cohereResult = response.generations[0].text.trim();
-        if (cohereResult.includes('email:') && cohereResult.includes('password:')) {
-          const [emailPart, passwordPart] = cohereResult.split(',');
-          emailSelector = emailPart.split(':')[1]?.trim() || emailSelector;
-          passwordSelector = passwordPart.split(':')[1]?.trim() || passwordSelector;
-          botStatus.logs.push(`${new Date().toISOString()}: Cohere selectors - Email: ${emailSelector}, Password: ${passwordSelector}`);
-        }
-      } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: Cohere form analysis failed, using defaults`);
-      }
-    }
-    
-    // Fill email
-    botStatus.logs.push(`${new Date().toISOString()}: 📧 Filling email field with selector: "${emailSelector}"`);
-    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Typing email: ${process.env.POLAROO_EMAIL}`);
-    await page.type(emailSelector, process.env.POLAROO_EMAIL, { delay: 100 });
+    // Fill email field
+    botStatus.logs.push(`${new Date().toISOString()}: 📧 Filling email field...`);
+    await page.type('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', process.env.POLAROO_EMAIL, { delay: 100 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Email field filled successfully`);
     
-    // Fill password  
-    botStatus.logs.push(`${new Date().toISOString()}: 🔒 Filling password field with selector: "${passwordSelector}"`);
-    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Typing password...`);
-    await page.type(passwordSelector, process.env.POLAROO_PASSWORD, { delay: 100 });
+    // Fill password field
+    botStatus.logs.push(`${new Date().toISOString()}: 🔒 Filling password field...`);
+    await page.type('input[type="password"], input[name="password"], input[id="password"]', process.env.POLAROO_PASSWORD, { delay: 100 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Password field filled successfully`);
 
     botStatus.currentStep = 'Submitting login form...';
@@ -398,16 +215,71 @@ Return format: email:selector,password:selector`,
     // Wait for navigation after login
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
 
+    // Navigate to accounting dashboard
     botStatus.currentStep = 'Navigating to accounting dashboard...';
-    botStatus.logs.push(`${new Date().toISOString()}: Navigating to accounting dashboard`);
+    botStatus.logs.push(`${new Date().toISOString()}: 🌐 Navigating to accounting dashboard...`);
+    botStatus.actionDetails = {
+      type: 'navigation',
+      icon: '🌐',
+      title: 'Navigation',
+      details: 'Going to accounting dashboard...',
+      url: 'https://app.polaroo.com/dashboard/accounting',
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
-    // Navigate to accounting dashboard
-    await page.goto('https://app.polaroo.com/dashboard/accounting', { waitUntil: 'networkidle2' });
+    await page.goto('https://app.polaroo.com/dashboard/accounting', { waitUntil: 'domcontentloaded' });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully reached accounting dashboard`);
 
-    botStatus.currentStep = 'Successfully reached accounting dashboard!';
-    botStatus.logs.push(`${new Date().toISOString()}: Successfully reached accounting dashboard`);
+    // Read first property name from Excel
+    botStatus.currentStep = 'Reading property data from Excel...';
+    botStatus.logs.push(`${new Date().toISOString()}: 📊 Reading Book1.xlsx for first property...`);
+    botStatus.actionDetails = {
+      type: 'file_reading',
+      icon: '📊',
+      title: 'File Reading',
+      details: 'Reading Excel file for property data...',
+      url: null,
+      coordinates: null
+    };
+    io.emit('bot-update', botStatus);
+
+    const firstPropertyName = getFirstPropertyName();
+    botStatus.logs.push(`${new Date().toISOString()}: 📋 First property name: "${firstPropertyName}"`);
+
+    // Search for the property
+    botStatus.currentStep = 'Searching for property...';
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Searching for property: "${firstPropertyName}"...`);
+    botStatus.actionDetails = {
+      type: 'searching',
+      icon: '🔍',
+      title: 'Searching',
+      details: `Looking for property: ${firstPropertyName}`,
+      url: null,
+      coordinates: null
+    };
+    io.emit('bot-update', botStatus);
+
+    // Wait for search input and type property name
+    await page.waitForSelector('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]', { timeout: 10000 });
+    await page.type('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]', firstPropertyName, { delay: 100 });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Property name entered in search field`);
+
+    // Press Enter to search
+    await page.keyboard.press('Enter');
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Search executed`);
+
+    botStatus.currentStep = 'Successfully completed property search!';
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully searched for property: "${firstPropertyName}"`);
     botStatus.isRunning = false;
+    botStatus.actionDetails = {
+      type: 'success',
+      icon: '✅',
+      title: 'Success',
+      details: `Successfully searched for property: ${firstPropertyName}`,
+      url: 'https://app.polaroo.com/dashboard/accounting',
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
     // Keep page open for a bit to show success
