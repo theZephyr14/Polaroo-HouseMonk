@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const { CohereClient } = require('cohere-ai');
 const fs = require('fs');
 require('dotenv').config();
@@ -48,8 +48,8 @@ async function runPolarooBot() {
     botStatus.logs.push(`${new Date().toISOString()}: Starting browser`);
     io.emit('bot-update', botStatus);
 
-    // Launch browser with flexible Chrome detection
-    const launchOptions = {
+    // Launch browser - puppeteer includes Chrome
+    browser = await puppeteer.launch({
       headless: true,
       args: [
         '--no-sandbox',
@@ -61,38 +61,9 @@ async function runPolarooBot() {
         '--single-process',
         '--disable-gpu'
       ]
-    };
-
-    // Try different Chrome paths for different environments
-    const chromePaths = [
-      process.env.PUPPETEER_EXECUTABLE_PATH,
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium',
-      '/opt/google/chrome/chrome',
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // macOS
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Windows
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe' // Windows 32-bit
-    ];
-
-    // Find the first available Chrome executable
-    let chromePath = null;
-    for (const path of chromePaths) {
-      if (path && fs.existsSync(path)) {
-        chromePath = path;
-        break;
-      }
-    }
-
-    if (chromePath) {
-      launchOptions.executablePath = chromePath;
-      botStatus.logs.push(`${new Date().toISOString()}: Using Chrome at: ${chromePath}`);
-    } else {
-      botStatus.logs.push(`${new Date().toISOString()}: No Chrome found, letting Puppeteer auto-detect`);
-    }
-
-    browser = await puppeteer.launch(launchOptions);
+    });
+    
+    botStatus.logs.push(`${new Date().toISOString()}: Browser launched successfully`);
     
     page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
