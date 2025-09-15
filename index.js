@@ -173,40 +173,80 @@ async function runPolarooBot() {
       timeout: 30000 
     });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully loaded login page`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the login page...`);
+    await page.waitForTimeout(5000); // 5 second pause
 
-    botStatus.currentStep = 'Filling login credentials...';
-    botStatus.logs.push(`${new Date().toISOString()}: Filling login credentials`);
+    // Find and highlight the email field
+    botStatus.currentStep = 'Looking for email field...';
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Looking for email/username field...`);
     botStatus.actionDetails = {
-      type: 'form_input',
-      icon: '📝',
-      title: 'Form Input',
-      details: 'Filling login credentials...',
+      type: 'searching',
+      icon: '🔍',
+      title: 'Finding Fields',
+      details: 'Looking for email field...',
       url: null,
       coordinates: null
     };
     io.emit('bot-update', botStatus);
 
-    // Wait for login form and analyze with Cohere
-    botStatus.currentStep = 'Analyzing login form with Cohere...';
-    botStatus.logs.push(`${new Date().toISOString()}: Analyzing login form`);
+    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', { timeout: 15000 });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Found email field!`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the email field...`);
+    await page.waitForTimeout(5000); // 5 second pause
+
+    // Fill email field
+    botStatus.currentStep = 'Filling email field...';
+    botStatus.logs.push(`${new Date().toISOString()}: 📧 Filling email field...`);
+    botStatus.actionDetails = {
+      type: 'form_input',
+      icon: '📝',
+      title: 'Form Input',
+      details: 'Typing email address...',
+      url: null,
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
-    // Wait for form to load
-    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting for login form to load...`);
-    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', { timeout: 15000 });
-    botStatus.logs.push(`${new Date().toISOString()}: ✅ Login form detected`);
-    
-    // Fill email field
-    botStatus.logs.push(`${new Date().toISOString()}: 📧 Filling email field...`);
     await page.type('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', process.env.POLAROO_EMAIL, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Email field filled successfully`);
-    await page.waitForTimeout(1000); // Pause so you can see it
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the filled email...`);
+    await page.waitForTimeout(5000); // 5 second pause
     
+    // Find and highlight the password field
+    botStatus.currentStep = 'Looking for password field...';
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Looking for password field...`);
+    botStatus.actionDetails = {
+      type: 'searching',
+      icon: '🔍',
+      title: 'Finding Fields',
+      details: 'Looking for password field...',
+      url: null,
+      coordinates: null
+    };
+    io.emit('bot-update', botStatus);
+
+    await page.waitForSelector('input[type="password"], input[name="password"], input[id="password"]', { timeout: 15000 });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Found password field!`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the password field...`);
+    await page.waitForTimeout(5000); // 5 second pause
+
     // Fill password field
+    botStatus.currentStep = 'Filling password field...';
     botStatus.logs.push(`${new Date().toISOString()}: 🔒 Filling password field...`);
+    botStatus.actionDetails = {
+      type: 'form_input',
+      icon: '🔒',
+      title: 'Form Input',
+      details: 'Typing password...',
+      url: null,
+      coordinates: null
+    };
+    io.emit('bot-update', botStatus);
+
     await page.type('input[type="password"], input[name="password"], input[id="password"]', process.env.POLAROO_PASSWORD, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Password field filled successfully`);
-    await page.waitForTimeout(1000); // Pause so you can see it
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ WAITING 5 SECONDS so you can see the filled password...`);
+    await page.waitForTimeout(5000); // 5 second pause
 
     botStatus.currentStep = 'Submitting login form...';
     botStatus.logs.push(`${new Date().toISOString()}: Submitting login form`);
