@@ -87,8 +87,20 @@ async function runPolarooBot() {
     botStatus.logs.push(`${new Date().toISOString()}: Navigating to Polaroo`);
     io.emit('bot-update', botStatus);
 
-    // Navigate to Polaroo
-    await page.goto('https://polaroo.com', { waitUntil: 'networkidle2' });
+    // Navigate to Polaroo with better error handling
+    try {
+      await page.goto('https://polaroo.com', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 30000 
+      });
+      botStatus.logs.push(`${new Date().toISOString()}: Successfully loaded Polaroo homepage`);
+    } catch (error) {
+      botStatus.logs.push(`${new Date().toISOString()}: Failed to load polaroo.com, trying app.polaroo.com`);
+      await page.goto('https://app.polaroo.com', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 30000 
+      });
+    }
 
     // Use Cohere to analyze the page and find login elements
     botStatus.currentStep = 'Analyzing page with Cohere AI...';
@@ -102,6 +114,8 @@ async function runPolarooBot() {
     let loginStrategy = 'direct';
     if (cohereClient) {
       try {
+        botStatus.logs.push(`${new Date().toISOString()}: Sending page content to Cohere (${pageText.length} chars)`);
+        
         const response = await cohereClient.generate({
           model: 'command',
           prompt: `Analyze this webpage content and determine the best way to find and click the login button. Look for login links, buttons, or navigation elements. Return only the CSS selector or XPath that would work best.
@@ -122,11 +136,18 @@ Return the best selector:`,
           temperature: 0.1
         });
         
-        loginStrategy = response.generations[0].text.trim();
-        botStatus.logs.push(`${new Date().toISOString()}: Cohere suggested: ${loginStrategy}`);
+        if (response && response.generations && response.generations[0]) {
+          loginStrategy = response.generations[0].text.trim();
+          botStatus.logs.push(`${new Date().toISOString()}: Cohere suggested: ${loginStrategy}`);
+        } else {
+          botStatus.logs.push(`${new Date().toISOString()}: Cohere returned empty response`);
+        }
       } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: Cohere analysis failed, using fallback`);
+        botStatus.logs.push(`${new Date().toISOString()}: Cohere analysis failed: ${error.message}`);
+        botStatus.logs.push(`${new Date().toISOString()}: Using fallback strategy`);
       }
+    } else {
+      botStatus.logs.push(`${new Date().toISOString()}: No Cohere client available, using fallback`);
     }
 
     // Try to find and click login button
@@ -164,7 +185,26 @@ Return the best selector:`,
     if (!loginClicked) {
       // Try direct navigation to login page
       botStatus.logs.push(`${new Date().toISOString()}: No login button found, trying direct navigation`);
-      await page.goto('https://app.polaroo.com/login', { waitUntil: 'networkidle2' });
+      try {
+        await page.goto('https://app.polaroo.com/login', { 
+          waitUntil: 'domcontentloaded',
+          timeout: 30000 
+        });
+        botStatus.logs.push(`${new Date().toISOString()}: Successfully navigated to login page`);
+      } catch (error) {
+        botStatus.logs.push(`${new Date().toISOString()}: Failed to navigate to login page: ${error.message}`);
+        // Try alternative login URL
+        try {
+          await page.goto('https://polaroo.com/login', { 
+            waitUntil: 'domcontentloaded',
+            timeout: 30000 
+          });
+          botStatus.logs.push(`${new Date().toISOString()}: Successfully navigated to alternative login page`);
+        } catch (error2) {
+          botStatus.logs.push(`${new Date().toISOString()}: All login page attempts failed: ${error2.message}`);
+          throw new Error('Unable to access login page');
+        }
+      }
     }
 
     botStatus.currentStep = 'Filling login credentials...';
@@ -176,8 +216,21 @@ Return the best selector:`,
     botStatus.logs.push(`${new Date().toISOString()}: Analyzing login form`);
     io.emit('bot-update', botStatus);
 
-    // Wait for form to load
-    await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', { timeout: 15000 });
+    // Wait for form to load with multiple attempts
+    botStatus.logs.push(`${new Date().toISOString()}: Waiting for login form to load...`);
+    try {
+      await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 15000 });
+      botStatus.logs.push(`${new Date().toISOString()}: Login form detected`);
+    } catch (error) {
+      botStatus.logs.push(`${new Date().toISOString()}: Form not found, trying to find any input field`);
+      try {
+        await page.waitForSelector('input', { timeout: 10000 });
+        botStatus.logs.push(`${new Date().toISOString()}: Found input fields on page`);
+      } catch (error2) {
+        botStatus.logs.push(`${new Date().toISOString()}: No input fields found: ${error2.message}`);
+        throw new Error('Login form not found');
+      }
+    }
     
     // Use Cohere to find the best selectors for email and password fields
     let emailSelector = 'input[type="email"], input[name="email"], input[id="email"]';
