@@ -55,6 +55,14 @@ async function runPolarooBot() {
     botStatus.currentStep = 'Starting browser...';
     botStatus.logs.push(`${new Date().toISOString()}: 🚀 Starting browser initialization`);
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ Preparing Chrome launch options...`);
+    botStatus.actionDetails = {
+      type: 'browser_start',
+      icon: '🚀',
+      title: 'Browser Launch',
+      details: 'Initializing Chrome browser...',
+      url: null,
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
     // Launch browser with cloud-optimized Chrome
@@ -96,6 +104,14 @@ async function runPolarooBot() {
     botStatus.currentStep = 'Navigating to Polaroo login...';
     botStatus.logs.push(`${new Date().toISOString()}: 🌐 Navigating to Polaroo homepage...`);
     botStatus.logs.push(`${new Date().toISOString()}: ⏳ Setting viewport to 1280x720...`);
+    botStatus.actionDetails = {
+      type: 'navigation',
+      icon: '🌐',
+      title: 'Navigation',
+      details: 'Loading Polaroo homepage...',
+      url: 'https://polaroo.com',
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
     // Navigate to Polaroo with better error handling
@@ -170,6 +186,14 @@ Return the best selector:`,
     // Try to find and click login button
     botStatus.currentStep = 'Looking for login button...';
     botStatus.logs.push(`${new Date().toISOString()}: 🔍 Searching for login button...`);
+    botStatus.actionDetails = {
+      type: 'clicking',
+      icon: '🖱️',
+      title: 'Clicking',
+      details: 'Searching for login button...',
+      url: null,
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
     const loginSelectors = [
@@ -231,6 +255,14 @@ Return the best selector:`,
 
     botStatus.currentStep = 'Filling login credentials...';
     botStatus.logs.push(`${new Date().toISOString()}: Filling login credentials`);
+    botStatus.actionDetails = {
+      type: 'form_input',
+      icon: '📝',
+      title: 'Form Input',
+      details: 'Filling login credentials...',
+      url: null,
+      coordinates: null
+    };
     io.emit('bot-update', botStatus);
 
     // Wait for login form and analyze with Cohere
