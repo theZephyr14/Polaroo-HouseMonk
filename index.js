@@ -21,8 +21,15 @@ const PORT = process.env.PORT || 3000;
 
 // Initialize Cohere
 let cohereClient = null;
-if (process.env.COHERE_API_KEY) {
-  cohereClient = new CohereClient({ apiKey: process.env.COHERE_API_KEY });
+if (process.env.COHERE_API_KEY && process.env.COHERE_API_KEY !== 'your_cohere_api_key_here') {
+  try {
+    cohereClient = new CohereClient({ apiKey: process.env.COHERE_API_KEY });
+    console.log('Cohere client initialized successfully');
+  } catch (error) {
+    console.log('Failed to initialize Cohere client:', error.message);
+  }
+} else {
+  console.log('No valid Cohere API key found - using fallback mode');
 }
 
 // Middleware
@@ -46,7 +53,8 @@ async function runPolarooBot() {
   try {
     botStatus.isRunning = true;
     botStatus.currentStep = 'Starting browser...';
-    botStatus.logs.push(`${new Date().toISOString()}: Starting browser`);
+    botStatus.logs.push(`${new Date().toISOString()}: 🚀 Starting browser initialization`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Preparing Chrome launch options...`);
     io.emit('bot-update', botStatus);
 
     // Launch browser with cloud-optimized Chrome
@@ -70,51 +78,60 @@ async function runPolarooBot() {
 
     if (isCloud) {
       // Use cloud-optimized Chrome for production
+      botStatus.logs.push(`${new Date().toISOString()}: 🌐 Cloud environment detected - getting Chrome path...`);
       launchOptions.executablePath = await chromium.executablePath();
-      botStatus.logs.push(`${new Date().toISOString()}: Using cloud Chrome: ${launchOptions.executablePath}`);
+      botStatus.logs.push(`${new Date().toISOString()}: ✅ Using cloud Chrome: ${launchOptions.executablePath}`);
     } else {
       // Use local Chrome for development
-      botStatus.logs.push(`${new Date().toISOString()}: Using local Chrome`);
+      botStatus.logs.push(`${new Date().toISOString()}: 💻 Local environment detected - using system Chrome`);
     }
 
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Launching browser with ${launchOptions.args.length} arguments...`);
     browser = await puppeteer.launch(launchOptions);
-    botStatus.logs.push(`${new Date().toISOString()}: Browser launched successfully`);
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Browser launched successfully`);
     
     page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
 
     botStatus.currentStep = 'Navigating to Polaroo login...';
-    botStatus.logs.push(`${new Date().toISOString()}: Navigating to Polaroo`);
+    botStatus.logs.push(`${new Date().toISOString()}: 🌐 Navigating to Polaroo homepage...`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Setting viewport to 1280x720...`);
     io.emit('bot-update', botStatus);
 
     // Navigate to Polaroo with better error handling
     try {
+      botStatus.logs.push(`${new Date().toISOString()}: 🔗 Attempting to load https://polaroo.com...`);
       await page.goto('https://polaroo.com', { 
         waitUntil: 'domcontentloaded',
         timeout: 30000 
       });
-      botStatus.logs.push(`${new Date().toISOString()}: Successfully loaded Polaroo homepage`);
+      botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully loaded Polaroo homepage`);
     } catch (error) {
-      botStatus.logs.push(`${new Date().toISOString()}: Failed to load polaroo.com, trying app.polaroo.com`);
+      botStatus.logs.push(`${new Date().toISOString()}: ❌ Failed to load polaroo.com: ${error.message}`);
+      botStatus.logs.push(`${new Date().toISOString()}: 🔄 Trying alternative URL: app.polaroo.com...`);
       await page.goto('https://app.polaroo.com', { 
         waitUntil: 'domcontentloaded',
         timeout: 30000 
       });
+      botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully loaded app.polaroo.com`);
     }
 
     // Use Cohere to analyze the page and find login elements
     botStatus.currentStep = 'Analyzing page with Cohere AI...';
-    botStatus.logs.push(`${new Date().toISOString()}: Analyzing page with Cohere AI`);
+    botStatus.logs.push(`${new Date().toISOString()}: 🧠 Starting Cohere AI analysis...`);
     io.emit('bot-update', botStatus);
 
     // Get page content for Cohere analysis
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Extracting page content...`);
     const pageContent = await page.content();
     const pageText = await page.evaluate(() => document.body.innerText);
+    botStatus.logs.push(`${new Date().toISOString()}: 📄 Page content extracted: ${pageContent.length} chars HTML, ${pageText.length} chars text`);
     
     let loginStrategy = 'direct';
     if (cohereClient) {
       try {
-        botStatus.logs.push(`${new Date().toISOString()}: Sending page content to Cohere (${pageText.length} chars)`);
+        botStatus.logs.push(`${new Date().toISOString()}: 📤 Sending page content to Cohere API (${pageText.length} chars)...`);
+        botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting for Cohere response...`);
         
         const response = await cohereClient.generate({
           model: 'command',
@@ -138,21 +155,21 @@ Return the best selector:`,
         
         if (response && response.generations && response.generations[0]) {
           loginStrategy = response.generations[0].text.trim();
-          botStatus.logs.push(`${new Date().toISOString()}: Cohere suggested: ${loginStrategy}`);
+          botStatus.logs.push(`${new Date().toISOString()}: ✅ Cohere AI suggested selector: "${loginStrategy}"`);
         } else {
-          botStatus.logs.push(`${new Date().toISOString()}: Cohere returned empty response`);
+          botStatus.logs.push(`${new Date().toISOString()}: ⚠️ Cohere returned empty response - using fallback`);
         }
       } catch (error) {
-        botStatus.logs.push(`${new Date().toISOString()}: Cohere analysis failed: ${error.message}`);
-        botStatus.logs.push(`${new Date().toISOString()}: Using fallback strategy`);
+        botStatus.logs.push(`${new Date().toISOString()}: ❌ Cohere analysis failed: ${error.message}`);
+        botStatus.logs.push(`${new Date().toISOString()}: 🔄 Switching to fallback strategy (hardcoded selectors)`);
       }
     } else {
-      botStatus.logs.push(`${new Date().toISOString()}: No Cohere client available, using fallback`);
+      botStatus.logs.push(`${new Date().toISOString()}: ⚠️ No Cohere client available - using fallback strategy`);
     }
 
     // Try to find and click login button
     botStatus.currentStep = 'Looking for login button...';
-    botStatus.logs.push(`${new Date().toISOString()}: Looking for login button`);
+    botStatus.logs.push(`${new Date().toISOString()}: 🔍 Searching for login button...`);
     io.emit('bot-update', botStatus);
 
     const loginSelectors = [
@@ -169,15 +186,20 @@ Return the best selector:`,
       'header a[href*="login"]'
     ];
 
+    botStatus.logs.push(`${new Date().toISOString()}: 📋 Testing ${loginSelectors.length} login selectors...`);
     let loginClicked = false;
-    for (const selector of loginSelectors) {
+    for (let i = 0; i < loginSelectors.length; i++) {
+      const selector = loginSelectors[i];
       try {
+        botStatus.logs.push(`${new Date().toISOString()}: ⏳ Testing selector ${i + 1}/${loginSelectors.length}: "${selector}"`);
         await page.waitForSelector(selector, { timeout: 3000 });
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found login element with selector: "${selector}"`);
         await page.click(selector);
         loginClicked = true;
-        botStatus.logs.push(`${new Date().toISOString()}: Clicked login with selector: ${selector}`);
+        botStatus.logs.push(`${new Date().toISOString()}: 🖱️ Successfully clicked login button!`);
         break;
       } catch (e) {
+        botStatus.logs.push(`${new Date().toISOString()}: ❌ Selector "${selector}" not found: ${e.message}`);
         continue;
       }
     }
@@ -217,17 +239,41 @@ Return the best selector:`,
     io.emit('bot-update', botStatus);
 
     // Wait for form to load with multiple attempts
-    botStatus.logs.push(`${new Date().toISOString()}: Waiting for login form to load...`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Waiting for login form to load...`);
     try {
       await page.waitForSelector('input[type="email"], input[name="email"], input[id="email"], input[type="text"], input[placeholder*="email"], input[placeholder*="Email"]', { timeout: 15000 });
-      botStatus.logs.push(`${new Date().toISOString()}: Login form detected`);
+      botStatus.logs.push(`${new Date().toISOString()}: ✅ Login form detected with email field`);
     } catch (error) {
-      botStatus.logs.push(`${new Date().toISOString()}: Form not found, trying to find any input field`);
+      botStatus.logs.push(`${new Date().toISOString()}: ❌ Email field not found: ${error.message}`);
+      botStatus.logs.push(`${new Date().toISOString()}: 🔍 Trying to find any input field...`);
       try {
         await page.waitForSelector('input', { timeout: 10000 });
-        botStatus.logs.push(`${new Date().toISOString()}: Found input fields on page`);
+        botStatus.logs.push(`${new Date().toISOString()}: ✅ Found input fields on page`);
+        
+        // Analyze the actual form structure
+        botStatus.logs.push(`${new Date().toISOString()}: 🔍 Analyzing form structure...`);
+        const formAnalysis = await page.evaluate(() => {
+          const inputs = document.querySelectorAll('input');
+          const forms = document.querySelectorAll('form');
+          return {
+            inputCount: inputs.length,
+            formCount: forms.length,
+            inputTypes: Array.from(inputs).map(input => ({
+              type: input.type,
+              name: input.name,
+              id: input.id,
+              placeholder: input.placeholder,
+              className: input.className
+            })),
+            formHTML: Array.from(forms).map(form => form.outerHTML)
+          };
+        });
+        
+        botStatus.logs.push(`${new Date().toISOString()}: 📊 Form analysis: ${formAnalysis.inputCount} inputs, ${formAnalysis.formCount} forms`);
+        botStatus.logs.push(`${new Date().toISOString()}: 📋 Input details: ${JSON.stringify(formAnalysis.inputTypes, null, 2)}`);
+        
       } catch (error2) {
-        botStatus.logs.push(`${new Date().toISOString()}: No input fields found: ${error2.message}`);
+        botStatus.logs.push(`${new Date().toISOString()}: ❌ No input fields found: ${error2.message}`);
         throw new Error('Login form not found');
       }
     }
@@ -275,12 +321,16 @@ Return format: email:selector,password:selector`,
     }
     
     // Fill email
+    botStatus.logs.push(`${new Date().toISOString()}: 📧 Filling email field with selector: "${emailSelector}"`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Typing email: ${process.env.POLAROO_EMAIL}`);
     await page.type(emailSelector, process.env.POLAROO_EMAIL, { delay: 100 });
-    botStatus.logs.push(`${new Date().toISOString()}: Filled email field`);
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Email field filled successfully`);
     
     // Fill password  
+    botStatus.logs.push(`${new Date().toISOString()}: 🔒 Filling password field with selector: "${passwordSelector}"`);
+    botStatus.logs.push(`${new Date().toISOString()}: ⏳ Typing password...`);
     await page.type(passwordSelector, process.env.POLAROO_PASSWORD, { delay: 100 });
-    botStatus.logs.push(`${new Date().toISOString()}: Filled password field`);
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Password field filled successfully`);
 
     botStatus.currentStep = 'Submitting login form...';
     botStatus.logs.push(`${new Date().toISOString()}: Submitting login form`);
