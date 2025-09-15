@@ -1,0 +1,13 @@
+{
+  "name": "calculator-app",
+  "version": "1.0.0",
+  "description": "Simple calculator web app",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Static HTML - no build needed'",
+    "start": "echo 'Use Docker: docker-compose up'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
