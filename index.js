@@ -91,7 +91,7 @@ async function runPolarooBot() {
     const isCloud = process.env.NODE_ENV === 'production';
     
     const launchOptions = {
-      headless: true,
+      headless: false,  // SHOW THE BROWSER WINDOW
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -99,10 +99,11 @@ async function runPolarooBot() {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--single-process',
         '--disable-gpu',
         '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
+        '--disable-features=VizDisplayCompositor',
+        '--window-size=1280,720',
+        '--start-maximized'
       ]
     };
 
@@ -197,13 +198,15 @@ async function runPolarooBot() {
     
     // Fill email field
     botStatus.logs.push(`${new Date().toISOString()}: 📧 Filling email field...`);
-    await page.type('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', process.env.POLAROO_EMAIL, { delay: 100 });
+    await page.type('input[type="email"], input[name="email"], input[id="email"], input[type="text"]', process.env.POLAROO_EMAIL, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Email field filled successfully`);
+    await page.waitForTimeout(1000); // Pause so you can see it
     
     // Fill password field
     botStatus.logs.push(`${new Date().toISOString()}: 🔒 Filling password field...`);
-    await page.type('input[type="password"], input[name="password"], input[id="password"]', process.env.POLAROO_PASSWORD, { delay: 100 });
+    await page.type('input[type="password"], input[name="password"], input[id="password"]', process.env.POLAROO_PASSWORD, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Password field filled successfully`);
+    await page.waitForTimeout(1000); // Pause so you can see it
 
     botStatus.currentStep = 'Submitting login form...';
     botStatus.logs.push(`${new Date().toISOString()}: Submitting login form`);
@@ -211,9 +214,12 @@ async function runPolarooBot() {
 
     // Submit login form
     await page.click('button[type="submit"], input[type="submit"], button:contains("Login"), button:contains("Sign in")');
+    botStatus.logs.push(`${new Date().toISOString()}: 🖱️ Login button clicked!`);
+    await page.waitForTimeout(2000); // Pause so you can see the click
     
     // Wait for navigation after login
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
+    botStatus.logs.push(`${new Date().toISOString()}: ✅ Login successful - navigating to dashboard`);
 
     // Navigate to accounting dashboard
     botStatus.currentStep = 'Navigating to accounting dashboard...';
@@ -262,12 +268,14 @@ async function runPolarooBot() {
 
     // Wait for search input and type property name
     await page.waitForSelector('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]', { timeout: 10000 });
-    await page.type('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]', firstPropertyName, { delay: 100 });
+    await page.type('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]', firstPropertyName, { delay: 200 });
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Property name entered in search field`);
+    await page.waitForTimeout(1500); // Pause so you can see the typing
 
     // Press Enter to search
     await page.keyboard.press('Enter');
     botStatus.logs.push(`${new Date().toISOString()}: 🔍 Search executed`);
+    await page.waitForTimeout(2000); // Pause so you can see the search results
 
     botStatus.currentStep = 'Successfully completed property search!';
     botStatus.logs.push(`${new Date().toISOString()}: ✅ Successfully searched for property: "${firstPropertyName}"`);
