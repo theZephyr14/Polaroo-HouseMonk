@@ -29,22 +29,58 @@ app.post('/api/test', (req, res) => {
     });
 });
 
-// Bot API endpoint - NO PUPPETEER!
-app.post('/api/calculate', async (req, res) => {
+// Test if we can reach Polaroo at all
+app.get('/api/test-polaroo', async (req, res) => {
     try {
-        console.log('🤖 Starting Polaroo bot (HTTP version)...');
-        
-        // Step 1: Get login page to get CSRF token or session
-        console.log('🌐 Step 1: Getting login page...');
-        const loginPageResponse = await axios.get('https://app.polaroo.com/login', {
+        console.log('🔍 Testing connection to Polaroo...');
+        const response = await axios.get('https://app.polaroo.com', {
+            timeout: 5000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
         });
-        console.log('✅ Login page loaded');
+        
+        res.json({
+            success: true,
+            message: 'Can reach Polaroo!',
+            status: response.status,
+            contentLength: response.data.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Cannot reach Polaroo:', error.message);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Bot API endpoint - NO PUPPETEER!
+app.post('/api/calculate', async (req, res) => {
+    try {
+        console.log('🤖 Starting Polaroo bot (HTTP version)...');
+        console.log('🔍 DEBUG: Bot started at', new Date().toISOString());
+        
+        // Step 1: Get login page to get CSRF token or session
+        console.log('🌐 Step 1: Getting login page...');
+        console.log('🔍 DEBUG: Attempting to reach https://app.polaroo.com/login');
+        
+        const loginPageResponse = await axios.get('https://app.polaroo.com/login', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: 10000
+        });
+        console.log('✅ Login page loaded - Status:', loginPageResponse.status);
+        console.log('🔍 DEBUG: Response headers:', Object.keys(loginPageResponse.headers));
         
         // Step 2: Try to login with POST request
         console.log('📝 Step 2: Attempting login...');
+        console.log('🔍 DEBUG: Sending login request to https://app.polaroo.com/login');
+        
         const loginResponse = await axios.post('https://app.polaroo.com/login', {
             email: 'francisco@node-living.com',
             password: 'Aribau126!'
@@ -54,36 +90,56 @@ app.post('/api/calculate', async (req, res) => {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             },
             maxRedirects: 0,
+            timeout: 10000,
             validateStatus: function (status) {
+                console.log('🔍 DEBUG: Login response status:', status);
                 return status >= 200 && status < 400; // Accept redirects
             }
         });
-        console.log('✅ Login request sent');
+        console.log('✅ Login request sent - Status:', loginResponse.status);
+        console.log('🔍 DEBUG: Login response headers:', Object.keys(loginResponse.headers));
         
         // Step 3: Try to access accounting dashboard
         console.log('🌐 Step 3: Accessing accounting dashboard...');
+        console.log('🔍 DEBUG: Attempting to reach https://app.polaroo.com/dashboard/accounting');
+        
         const dashboardResponse = await axios.get('https://app.polaroo.com/dashboard/accounting', {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Cookie': loginResponse.headers['set-cookie']?.join('; ') || ''
-            }
+            },
+            timeout: 10000
         });
-        console.log('✅ Accounting dashboard accessed');
+        console.log('✅ Accounting dashboard accessed - Status:', dashboardResponse.status);
+        console.log('🔍 DEBUG: Dashboard response length:', dashboardResponse.data.length);
 
         console.log('🎉 Bot completed successfully!');
+        console.log('🔍 DEBUG: Bot completed at', new Date().toISOString());
         
         res.json({ 
             success: true, 
             message: 'Bot completed successfully! (HTTP version)',
-            status: dashboardResponse.status
+            debug: {
+                loginPageStatus: loginPageResponse.status,
+                loginStatus: loginResponse.status,
+                dashboardStatus: dashboardResponse.status,
+                dashboardLength: dashboardResponse.data.length,
+                timestamp: new Date().toISOString()
+            }
         });
 
     } catch (error) {
         console.error('❌ Bot error:', error.message);
-  res.status(500).json({ 
+        console.error('🔍 DEBUG: Full error:', error);
+        res.status(500).json({ 
             success: false, 
-            error: error.message 
-  });
+            error: error.message,
+            debug: {
+                errorType: error.name,
+                errorCode: error.code,
+                timestamp: new Date().toISOString()
+            }
+        });
     }
 });
 
