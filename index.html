@@ -45,8 +45,41 @@
     </div>
 
     <script>
-        function calculate() {
-            alert('Calculate button clicked!');
+        async function calculate() {
+            const button = document.querySelector('.calculate-btn');
+            const originalText = button.textContent;
+            
+            // Show loading state
+            button.textContent = '🤖 Bot Running...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    button.textContent = '✅ Bot Complete!';
+                    alert('Bot completed successfully! Check the Chrome window that opened.');
+                } else {
+                    button.textContent = '❌ Bot Failed';
+                    alert('Bot failed: ' + result.error);
+                }
+            } catch (error) {
+                button.textContent = '❌ Error';
+                alert('Error: ' + error.message);
+            }
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+            }, 3000);
         }
     </script>
 </body>
