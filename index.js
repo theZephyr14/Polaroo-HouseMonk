@@ -97,16 +97,17 @@ app.get('/api/test-polaroo', async (req, res) => {
 app.post('/api/extract-data', async (req, res) => {
     const { period } = req.body;
     
-    // Set short timeout for Render
+    // Set very short timeout for Render free tier
     const timeout = setTimeout(() => {
         if (!res.headersSent) {
             res.status(408).json({
                 success: false,
-                error: 'Request timeout - operation took too long',
-                period: period
+                error: 'Render free tier timeout - Puppeteer too heavy',
+                period: period,
+                solution: 'Use local version or upgrade Render plan'
             });
         }
-    }, 25000); // 25 seconds max
+    }, 15000); // 15 seconds max
     
     try {
         console.log(`🤖 Starting FAST extraction for ${period}...`);
@@ -131,16 +132,17 @@ app.post('/api/extract-data', async (req, res) => {
         const dateRange = getPeriodDateRange(period);
         console.log(`📅 Date range: ${dateRange.start} to ${dateRange.end}`);
         
+        // Check if we're on Render free tier (limited resources)
+        if (process.env.NODE_ENV === 'production') {
+            console.log('⚠️ Running on Render free tier - Puppeteer too heavy');
+            throw new Error('Puppeteer not supported on Render free tier. Please run locally with: node local-test.js');
+        }
+        
         // Step 2: Get complete data from Polaroo (login + search + extract)
         console.log('🌐 Getting complete data from Polaroo...');
         let rawData;
         try {
-            rawData = await Promise.race([
-                getPolarooDataForProperty(propertyName),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Polaroo operation timeout after 25s')), 25000)
-                )
-            ]);
+            rawData = await getPolarooDataForProperty(propertyName);
             console.log(`✅ Got ${rawData.length} bills from Polaroo for "${propertyName}"`);
         } catch (polarooError) {
             console.error('❌ Polaroo integration failed:', polarooError.message);
@@ -420,7 +422,7 @@ async function getPolarooDataForProperty(propertyName) {
         await browser.close();
         return tableData;
         
-    } catch (error) {
+      } catch (error) {
         await browser.close();
         throw error;
     }
