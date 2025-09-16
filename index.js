@@ -39,6 +39,29 @@ app.post('/api/test', (req, res) => {
     });
 });
 
+// Debug endpoint to test Book1.xlsx reading
+app.get('/api/debug', (req, res) => {
+    try {
+        console.log('🔍 Debug: Testing Book1.xlsx reading...');
+        const bookData = getFirstPropertyFromBook1();
+        res.json({
+            success: true,
+            propertyName: bookData.propertyName,
+            totalProperties: bookData.totalProperties,
+            message: 'Book1.xlsx reading successful',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Book1.xlsx reading failed',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Test if we can reach Polaroo at all
 app.get('/api/test-polaroo', async (req, res) => {
     try {
@@ -86,23 +109,60 @@ app.post('/api/extract-data', async (req, res) => {
     try {
         console.log(`🤖 Starting FAST extraction for ${period}...`);
         
-        // Step 1: Read Book1.xlsx (this is fast and reliable)
-        console.log('📖 Reading Book1.xlsx...');
-        const { propertyName, totalProperties } = getFirstPropertyFromBook1();
-        console.log(`✅ Property: ${propertyName} (${totalProperties} total properties)`);
+        // Step 1: Read Book1.xlsx (with error handling)
+        console.log('📖 Step 1: Reading Book1.xlsx...');
+        let propertyName, totalProperties;
+        try {
+            const bookData = getFirstPropertyFromBook1();
+            propertyName = bookData.propertyName;
+            totalProperties = bookData.totalProperties;
+            console.log(`✅ Book1.xlsx: ${propertyName} (${totalProperties} total properties)`);
+        } catch (bookError) {
+            console.error('❌ Book1.xlsx error:', bookError.message);
+            // Use fallback if Book1.xlsx fails
+            propertyName = "Aribau 1º 1ª";
+            totalProperties = 1;
+            console.log(`⚠️ Using fallback property: ${propertyName}`);
+        }
         
-        // Step 2: Login to Polaroo
-        console.log('🌐 Logging into Polaroo...');
-        const cookies = await loginToPolaroo();
-        console.log('✅ Successfully logged into Polaroo');
-        
-        // Step 3: Search for property and get REAL data from Polaroo
-        console.log(`🔍 Searching for "${propertyName}" in Polaroo...`);
-        const rawData = await searchPropertyInPolaroo(propertyName, cookies);
-        console.log(`✅ Found ${rawData.length} bills for ${propertyName}`);
-        
-        // Step 4: Get date range and filter bills
+        // Step 2: Get date range first
         const dateRange = getPeriodDateRange(period);
+        console.log(`📅 Date range: ${dateRange.start} to ${dateRange.end}`);
+        
+        // Step 3: Try Polaroo login with timeout protection
+        console.log('🌐 Step 2: Attempting Polaroo login...');
+        let cookies = null;
+        try {
+            cookies = await Promise.race([
+                loginToPolaroo(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Login timeout after 15s')), 15000)
+                )
+            ]);
+            console.log('✅ Polaroo login successful');
+        } catch (loginError) {
+            console.error('❌ Polaroo login failed:', loginError.message);
+            throw new Error(`Cannot connect to Polaroo: ${loginError.message}`);
+        }
+        
+        // Step 4: Search for property with timeout protection
+        console.log(`🔍 Step 3: Searching for "${propertyName}" in Polaroo...`);
+        let rawData;
+        try {
+            rawData = await Promise.race([
+                searchPropertyInPolaroo(propertyName, cookies),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Search timeout after 15s')), 15000)
+                )
+            ]);
+            console.log(`✅ Found ${rawData.length} bills for ${propertyName}`);
+        } catch (searchError) {
+            console.error('❌ Property search failed:', searchError.message);
+            throw new Error(`Cannot find property in Polaroo: ${searchError.message}`);
+        }
+        
+        // Step 5: Filter bills
+        console.log(`🔍 Step 4: Filtering bills for ${period}...`);
         const filteredData = filterBillsForPeriod(rawData, dateRange, period);
         console.log(`✅ Filtered to ${filteredData.length} bills (NO GAS)`);
         
