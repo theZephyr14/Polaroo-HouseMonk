@@ -78,8 +78,9 @@ app.post('/api/extract-data', async (req, res) => {
         
         // Step 1: Read Book1.xlsx to get property name
         console.log('📖 Step 1: Reading Book1.xlsx...');
-        const propertyName = getFirstPropertyFromBook1();
+        const { propertyName, totalProperties } = getFirstPropertyFromBook1();
         console.log(`✅ Property name: ${propertyName}`);
+        console.log(`📊 Total properties in Book1.xlsx: ${totalProperties} properties available`);
         
         // Step 2: Login to Polaroo
         console.log('🌐 Step 2: Logging into Polaroo...');
@@ -115,7 +116,7 @@ app.post('/api/extract-data', async (req, res) => {
             }
         });
 
-    } catch (error) {
+      } catch (error) {
         console.error('❌ Extraction error:', error.message);
         res.status(500).json({
             success: false,
@@ -128,12 +129,31 @@ app.post('/api/extract-data', async (req, res) => {
 // Helper function to read first property from Book1.xlsx
 function getFirstPropertyFromBook1() {
     try {
-        // For now, return a sample property name
-        // In production, you'd read from the actual Book1.xlsx file
-        return "Psg Sant Joan Pral 2ª";
-      } catch (error) {
+        // Read the actual Book1.xlsx file
+        const workbook = XLSX.readFile('Book1.xlsx');
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (data.length === 0) {
+            throw new Error('Book1.xlsx is empty');
+        }
+        
+        // Get the first property name from the 'name' column
+        const firstRow = data[0];
+        const propertyName = firstRow.name;
+        
+        if (!propertyName) {
+            throw new Error('No property name found in Book1.xlsx');
+        }
+        
+        return {
+            propertyName: propertyName.toString().trim(),
+            totalProperties: data.length
+        };
+    } catch (error) {
         console.error('Error reading Book1.xlsx:', error);
-        return "Psg Sant Joan Pral 2ª"; // fallback
+        throw new Error(`Failed to read Book1.xlsx: ${error.message}`);
     }
 }
 
@@ -161,61 +181,77 @@ async function loginToPolaroo() {
 
 // Helper function to search property in Polaroo
 async function searchPropertyInPolaroo(propertyName, cookies) {
-    const dashboardResponse = await axios.get('https://app.polaroo.com/dashboard/accounting', {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Cookie': cookies
-        },
-        timeout: 10000
-    });
-    
-    // For now, return sample data that matches the Polaroo table structure
-    return [
-        {
-            rowNumber: 1,
-            asset: "Psg Sant Joan Pral 2ª",
-            company: "COMERCIALIZADORA REGULADA GAS & POWER, S.A.",
-            service: "Gas",
-            initialDate: "19/06/2025",
-            finalDate: "20/08/2025",
-            subtotal: "12,92 €",
-            taxes: "2,71 €",
-            total: "15,63 €"
-        },
-        {
-            rowNumber: 2,
-            asset: "Psg Sant Joan Pral 2ª",
-            company: "GAOLANIA SERVICIOS S.L.",
-            service: "Electricity",
-            initialDate: "01/08/2025",
-            finalDate: "31/08/2025",
-            subtotal: "23,45 €",
-            taxes: "4,92 €",
-            total: "28,37 €"
-        },
-        {
-            rowNumber: 3,
-            asset: "Psg Sant Joan Pral 2ª",
-            company: "GAOLANIA SERVICIOS S.L.",
-            service: "Electricity",
-            initialDate: "01/07/2025",
-            finalDate: "31/07/2025",
-            subtotal: "179,49 €",
-            taxes: "37,69 €",
-            total: "217,18 €"
-        },
-        {
-            rowNumber: 4,
-            asset: "Psg Sant Joan Pral 2ª",
-            company: "Aigües de Barcelona",
-            service: "Water",
-            initialDate: "13/05/2025",
-            finalDate: "11/07/2025",
-            subtotal: "253,60 €",
-            taxes: "14,65 €",
-            total: "268,25 €"
+    try {
+        // Step 1: Go to accounting dashboard
+        console.log('🌐 Accessing accounting dashboard...');
+        const dashboardResponse = await axios.get('https://app.polaroo.com/dashboard/accounting', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Cookie': cookies
+            },
+            timeout: 15000
+        });
+        
+        if (dashboardResponse.status !== 200) {
+            throw new Error(`Failed to access dashboard: ${dashboardResponse.status}`);
         }
-    ];
+        
+        console.log('✅ Dashboard accessed successfully');
+        
+        // Step 2: Search for the property in the search bar
+        console.log(`🔍 Searching for property: "${propertyName}"`);
+        
+        // Try to make a search request (this might be a POST or GET depending on Polaroo's implementation)
+        const searchResponse = await axios.post('https://app.polaroo.com/dashboard/accounting/search', {
+            query: propertyName,
+            filter: 'all'
+        }, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Cookie': cookies,
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            timeout: 15000
+        });
+        
+        console.log('✅ Search completed');
+        
+        // Step 3: Parse the actual HTML/JSON response to extract table data
+        const extractedData = parseTableDataFromResponse(searchResponse.data, propertyName);
+        
+        if (extractedData.length === 0) {
+            throw new Error(`No data found for property: ${propertyName}`);
+        }
+        
+        console.log(`✅ Found ${extractedData.length} rows for property "${propertyName}"`);
+        return extractedData;
+        
+    } catch (error) {
+        console.error('❌ Error searching property in Polaroo:', error.message);
+        throw new Error(`Failed to search property in Polaroo: ${error.message}`);
+    }
+}
+
+// Helper function to parse table data from Polaroo response
+function parseTableDataFromResponse(responseData, propertyName) {
+    try {
+        // This function needs to parse the actual HTML/JSON from Polaroo
+        // For now, we'll throw an error to force proper implementation
+        
+        if (typeof responseData === 'string' && responseData.includes('login')) {
+            throw new Error('Not logged in - redirected to login page');
+        }
+        
+        // TODO: Implement actual HTML parsing here
+        // This would use something like cheerio to parse the HTML table
+        // and extract the real data from Polaroo
+        
+        throw new Error('HTML parsing not yet implemented - need to parse actual Polaroo table data');
+        
+      } catch (error) {
+        throw new Error(`Failed to parse Polaroo data: ${error.message}`);
+    }
 }
 
 // Helper function to get date range for period
@@ -234,62 +270,67 @@ function getPeriodDateRange(period) {
 
 // Helper function to analyze data with Cohere AI
 async function analyzeDataWithCohere(rawData, startDate, endDate) {
-    console.log('🧠 Starting Cohere analysis...');
+    console.log('🧠 Starting Cohere AI analysis...');
     
-    // For now, use intelligent fallback logic instead of Cohere to avoid JSON parsing issues
-    // This will select the right bills based on the date range and service type
+    const prompt = `
+    Analyze these utility invoices for the period ${startDate} to ${endDate}.
+    
+    IMPORTANT: This is a 2-MONTH period calculation. You need to find:
+    - 2 ELECTRICITY bills (one for each month)
+    - 1 WATER bill (covers both months, as water is billed every 2 months)
+    
+    For each invoice, determine:
+    1. Service type (electricity, water, gas)
+    2. Whether it should be included in the calculation
+    3. The amount in euros
+    4. The date range it covers
+    
+    SELECTION RULES:
+    - ELECTRICITY: Select exactly 2 bills (one per month in the period)
+    - WATER: Select exactly 1 bill that covers the entire 2-month period
+    - GAS: Ignore gas bills for this calculation
+    - Only select bills that fall within the date range ${startDate} to ${endDate}
+    
+    Here is the invoice data:
+    ${JSON.stringify(rawData, null, 2)}
+    
+    Return ONLY a valid JSON object with this exact structure:
+    {
+        "selected_electricity_rows": [array of row numbers],
+        "selected_water_rows": [array of row numbers],
+        "total_electricity_cost": "amount in euros",
+        "total_water_cost": "amount in euros",
+        "reasoning": "explanation of selections",
+        "missing_bills": "any missing bills"
+    }
+    `;
+    
     try {
-        const electricityRows = [];
-        const waterRows = [];
-        
-        rawData.forEach(row => {
-            if (row.service.toLowerCase().includes('electricity')) {
-                // Check if the bill falls within the date range
-                if (isDateInRange(row.initialDate, startDate, endDate)) {
-                    electricityRows.push(row.rowNumber);
-                }
-            } else if (row.service.toLowerCase().includes('water')) {
-                // Water bills typically cover 2-month periods
-                if (isDateInRange(row.initialDate, startDate, endDate) || 
-                    isDateInRange(row.finalDate, startDate, endDate)) {
-                    waterRows.push(row.rowNumber);
-                }
-            }
+        const response = await cohere.chat({
+            model: 'command-r-plus',
+            message: prompt,
+            temperature: 0.1,
+            maxTokens: 1000
         });
         
-        // Calculate totals
-        let totalElectricity = 0;
-        let totalWater = 0;
+        console.log('🧠 Cohere raw response:', response.text);
         
-        rawData.forEach(row => {
-            if (electricityRows.includes(row.rowNumber)) {
-                totalElectricity += parseFloat(row.total.replace('€', '').replace(',', '.').trim());
-            }
-            if (waterRows.includes(row.rowNumber)) {
-                totalWater += parseFloat(row.total.replace('€', '').replace(',', '.').trim());
-            }
-        });
+        // Extract JSON from response
+        const responseText = response.text.trim();
+        let jsonMatch = responseText.match(/\{[\s\S]*\}/);
         
-        return {
-            selected_electricity_rows: electricityRows,
-            selected_water_rows: waterRows,
-            total_electricity_cost: `${totalElectricity.toFixed(2)} €`,
-            total_water_cost: `${totalWater.toFixed(2)} €`,
-            reasoning: `Selected ${electricityRows.length} electricity bills and ${waterRows.length} water bills for period ${startDate} to ${endDate}`,
-            missing_bills: electricityRows.length < 2 ? "Missing electricity bills" : "None"
-        };
+        if (!jsonMatch) {
+            throw new Error('No JSON found in Cohere response');
+        }
         
-      } catch (error) {
-        console.error('Analysis error:', error);
-        // Return safe fallback
-        return {
-            selected_electricity_rows: [2, 3],
-            selected_water_rows: [4],
-            total_electricity_cost: "246.67 €",
-            total_water_cost: "268.25 €",
-            reasoning: "Fallback analysis - selected electricity and water bills",
-            missing_bills: "None"
-        };
+        const parsedResult = JSON.parse(jsonMatch[0]);
+        console.log('✅ Cohere analysis successful:', parsedResult);
+        
+        return parsedResult;
+
+  } catch (error) {
+        console.error('❌ Cohere analysis failed:', error.message);
+        throw new Error(`Cohere AI analysis failed: ${error.message}`);
     }
 }
 
