@@ -21,29 +21,45 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Simple test endpoint (no Puppeteer)
+app.post('/api/test', (req, res) => {
+    res.json({ 
+        success: true, 
+        message: 'Server is working!',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Bot API endpoint
 app.post('/api/calculate', async (req, res) => {
+    // Set response timeout
+    res.setTimeout(120000); // 2 minutes max
+    
     let browser = null;
     try {
         console.log('🤖 Starting Polaroo bot...');
         
-        // Launch Chrome - VISIBLE locally, headless on Render
-        browser = await puppeteer.launch({
-            headless: process.env.NODE_ENV === 'production' ? 'new' : false, // Headless on Render, visible locally
-            executablePath: process.env.NODE_ENV === 'production' 
-                ? await chromium.executablePath() 
-                : undefined,
+        // Launch Chrome - Simplified for Render
+        const launchOptions = {
+            headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--window-size=1280,720',
-                '--start-maximized',
                 '--disable-web-security',
-                '--disable-features=VizDisplayCompositor'
+                '--single-process'
             ]
-        });
+        };
+
+        // Use chromium on production, system chrome locally
+        if (process.env.NODE_ENV === 'production') {
+            launchOptions.executablePath = await chromium.executablePath();
+        } else {
+            launchOptions.headless = false;
+        }
+
+        browser = await puppeteer.launch(launchOptions);
 
         const page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 720 });
@@ -97,11 +113,11 @@ app.post('/api/calculate', async (req, res) => {
             message: 'Bot completed successfully!' 
         });
 
-    } catch (error) {
+  } catch (error) {
         console.error('❌ Bot error:', error);
-        if (browser) {
+    if (browser) {
             try {
-                await browser.close();
+      await browser.close();
             } catch (e) {
                 console.error('Error closing browser:', e);
             }
