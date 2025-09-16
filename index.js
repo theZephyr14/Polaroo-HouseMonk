@@ -47,7 +47,7 @@ app.get('/api/test-polaroo', async (req, res) => {
             contentLength: response.data.length,
             timestamp: new Date().toISOString()
         });
-    } catch (error) {
+      } catch (error) {
         console.error('❌ Cannot reach Polaroo:', error.message);
         res.status(500).json({
             success: false,
@@ -77,27 +77,39 @@ app.post('/api/calculate', async (req, res) => {
         console.log('✅ Login page loaded - Status:', loginPageResponse.status);
         console.log('🔍 DEBUG: Response headers:', Object.keys(loginPageResponse.headers));
         
-        // Step 2: Try to login with POST request
+        // Step 2: Try to login with form data (not JSON)
         console.log('📝 Step 2: Attempting login...');
         console.log('🔍 DEBUG: Sending login request to https://app.polaroo.com/login');
         
-        const loginResponse = await axios.post('https://app.polaroo.com/login', {
-            email: 'francisco@node-living.com',
-            password: 'Aribau126!'
-        }, {
+        // Try form data instead of JSON
+        const formData = new URLSearchParams();
+        formData.append('email', 'francisco@node-living.com');
+        formData.append('password', 'Aribau126!');
+        
+        const loginResponse = await axios.post('https://app.polaroo.com/login', formData, {
             headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://app.polaroo.com/login'
             },
-            maxRedirects: 0,
+            maxRedirects: 5, // Allow redirects
             timeout: 10000,
             validateStatus: function (status) {
                 console.log('🔍 DEBUG: Login response status:', status);
-                return status >= 200 && status < 400; // Accept redirects
+                return status >= 200 && status < 500; // Accept most responses
             }
         });
         console.log('✅ Login request sent - Status:', loginResponse.status);
         console.log('🔍 DEBUG: Login response headers:', Object.keys(loginResponse.headers));
+        console.log('🔍 DEBUG: Login response URL:', loginResponse.request?.res?.responseUrl || 'Unknown');
+        
+        // Check if we got redirected to dashboard (successful login)
+        const finalUrl = loginResponse.request?.res?.responseUrl || loginResponse.config.url;
+        console.log('🔍 DEBUG: Final URL after login:', finalUrl);
+        
+        if (!finalUrl.includes('dashboard') && loginResponse.status !== 200) {
+            throw new Error(`Login failed - redirected to: ${finalUrl}, status: ${loginResponse.status}`);
+        }
         
         // Step 3: Try to access accounting dashboard
         console.log('🌐 Step 3: Accessing accounting dashboard...');
@@ -112,6 +124,11 @@ app.post('/api/calculate', async (req, res) => {
         });
         console.log('✅ Accounting dashboard accessed - Status:', dashboardResponse.status);
         console.log('🔍 DEBUG: Dashboard response length:', dashboardResponse.data.length);
+        
+        // Check if we actually got the dashboard content
+        if (dashboardResponse.data.includes('login') && !dashboardResponse.data.includes('dashboard')) {
+            throw new Error('Login failed - still on login page');
+        }
 
         console.log('🎉 Bot completed successfully!');
         console.log('🔍 DEBUG: Bot completed at', new Date().toISOString());
@@ -131,7 +148,7 @@ app.post('/api/calculate', async (req, res) => {
     } catch (error) {
         console.error('❌ Bot error:', error.message);
         console.error('🔍 DEBUG: Full error:', error);
-        res.status(500).json({ 
+  res.status(500).json({ 
             success: false, 
             error: error.message,
             debug: {
