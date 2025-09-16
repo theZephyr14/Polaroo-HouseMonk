@@ -21,9 +21,9 @@ app.post('/api/calculate', async (req, res) => {
     try {
         console.log('🤖 Starting Polaroo bot...');
         
-        // Launch Chrome in visible mode
+        // Launch Chrome - ALWAYS VISIBLE (even on Render)
         const browser = await puppeteer.launch({
-            headless: false, // VISIBLE CHROME WINDOW
+            headless: false, // ALWAYS VISIBLE - you want to see what's happening
             executablePath: process.env.NODE_ENV === 'production' 
                 ? await chromium.executablePath() 
                 : undefined,
@@ -31,8 +31,11 @@ app.post('/api/calculate', async (req, res) => {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                '--disable-gpu',
                 '--window-size=1280,720',
-                '--start-maximized'
+                '--start-maximized',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor'
             ]
         });
 
@@ -48,12 +51,41 @@ app.post('/api/calculate', async (req, res) => {
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('🔍 Step 2: Looking for email field...');
-        await page.waitForSelector('input[type="email"], input[name="email"], input[placeholder*="email" i]', { timeout: 15000 });
-        console.log('✅ Found email field');
+        
+        // Try multiple selectors for email field
+        let emailSelector = null;
+        const emailSelectors = [
+            'input[type="email"]',
+            'input[name="email"]', 
+            'input[id="email"]',
+            'input[placeholder*="email" i]',
+            'input[placeholder*="Email" i]',
+            'input[placeholder*="username" i]',
+            'input[placeholder*="Username" i]',
+            'input[type="text"]'
+        ];
+        
+        for (const selector of emailSelectors) {
+            try {
+                await page.waitForSelector(selector, { timeout: 3000 });
+                emailSelector = selector;
+                console.log(`✅ Found email field with selector: ${selector}`);
+                break;
+            } catch (e) {
+                console.log(`❌ Selector failed: ${selector}`);
+            }
+        }
+        
+        if (!emailSelector) {
+            // Take screenshot for debugging
+            await page.screenshot({ path: 'debug-login-page.png' });
+            throw new Error('Could not find email field with any selector. Check debug-login-page.png');
+        }
+        
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('📧 Step 3: Filling email field...');
-        await page.type('input[type="email"], input[name="email"], input[placeholder*="email" i]', 'francisco@node-living.com', { delay: 200 });
+        await page.type(emailSelector, 'francisco@node-living.com', { delay: 200 });
         console.log('✅ Email filled');
         await page.waitForTimeout(5000); // 5 second pause
 
@@ -87,9 +119,11 @@ app.post('/api/calculate', async (req, res) => {
 
         console.log('🎉 Bot completed successfully!');
         
-        // Keep browser open for 10 seconds so you can see the result
-        await page.waitForTimeout(10000);
+        // Keep browser open for 30 seconds so you can see the result
+        console.log('⏳ Keeping browser open for 30 seconds so you can see the result...');
+        await page.waitForTimeout(30000);
         await browser.close();
+        console.log('🔒 Browser closed');
 
         res.json({ 
             success: true, 
