@@ -91,28 +91,39 @@ app.post('/api/extract-data', async (req, res) => {
         const { propertyName, totalProperties } = getFirstPropertyFromBook1();
         console.log(`✅ Property: ${propertyName} (${totalProperties} total properties)`);
         
-        // Step 2: Generate mock data for now (to avoid Polaroo/Cohere timeouts)
-        console.log('🔄 Generating sample data for demonstration...');
+        // Step 2: Login to Polaroo and get REAL data
+        console.log('🌐 Logging into Polaroo...');
+        const cookies = await loginToPolaroo();
+        console.log('✅ Logged into Polaroo successfully');
+        
+        // Step 3: Search for property and extract REAL data
+        console.log(`🔍 Searching for "${propertyName}" in Polaroo...`);
+        const rawData = await searchPropertyInPolaroo(propertyName, cookies);
+        console.log(`✅ Found ${rawData.length} bills for ${propertyName}`);
+        
+        // Step 4: Filter out GAS bills and select relevant period
         const dateRange = getPeriodDateRange(period);
-        const sampleData = generateSampleDataForPeriod(period, propertyName, dateRange);
+        const filteredData = filterBillsForPeriod(rawData, dateRange, period);
+        console.log(`✅ Filtered to ${filteredData.length} bills (NO GAS)`);
         
         clearTimeout(timeout);
         
         res.json({
             success: true,
-            data: sampleData,
+            data: filteredData,
             period: period,
             propertyName: propertyName,
-            message: `Sample data for ${propertyName} - ${period}`,
+            message: `REAL data from Polaroo for ${propertyName} - ${period}`,
             debug: {
-                totalRows: sampleData.length,
+                totalRows: rawData.length,
+                filteredRows: filteredData.length,
                 dateRange: dateRange,
                 timestamp: new Date().toISOString(),
-                note: "Using sample data to avoid 502 errors - real integration coming next"
+                note: "✅ REAL DATA from Polaroo - Gas bills excluded"
             }
         });
 
-    } catch (error) {
+      } catch (error) {
         clearTimeout(timeout);
         console.error('❌ Extraction error:', error.message);
         
@@ -128,21 +139,12 @@ app.post('/api/extract-data', async (req, res) => {
 });
 
 // Generate sample data for the period to avoid 502 errors
+// NOTE: This is TEMPORARY sample data - will be replaced with real Polaroo data
 function generateSampleDataForPeriod(period, propertyName, dateRange) {
     const baseData = [
+        // NO GAS BILLS - Gas is completely excluded as per user requirements
         {
             rowNumber: 1,
-            asset: propertyName,
-            company: "COMERCIALIZADORA REGULADA GAS & POWER, S.A.",
-            service: "Gas",
-            initialDate: dateRange.start,
-            finalDate: dateRange.end,
-            subtotal: "12,92 €",
-            taxes: "2,71 €",
-            total: "15,63 €"
-        },
-        {
-            rowNumber: 2,
             asset: propertyName,
             company: "GAOLANIA SERVICIOS S.L.",
             service: "Electricity",
@@ -153,7 +155,7 @@ function generateSampleDataForPeriod(period, propertyName, dateRange) {
             total: "149,37 €"
         },
         {
-            rowNumber: 3,
+            rowNumber: 2,
             asset: propertyName,
             company: "GAOLANIA SERVICIOS S.L.",
             service: "Electricity",
@@ -164,7 +166,7 @@ function generateSampleDataForPeriod(period, propertyName, dateRange) {
             total: "119,50 €"
         },
         {
-            rowNumber: 4,
+            rowNumber: 3,
             asset: propertyName,
             company: "Aigües de Barcelona",
             service: "Water",
@@ -257,9 +259,14 @@ async function searchPropertyInPolaroo(propertyName, cookies) {
         const dashboardResponse = await axios.get('https://app.polaroo.com/dashboard/accounting', {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Cookie': cookies
+                'Cookie': cookies,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://app.polaroo.com/login',
+                'Upgrade-Insecure-Requests': '1'
             },
-            timeout: 15000
+            timeout: 10000
         });
         
         if (dashboardResponse.status !== 200) {
@@ -267,40 +274,122 @@ async function searchPropertyInPolaroo(propertyName, cookies) {
         }
         
         console.log('✅ Dashboard accessed successfully');
+        console.log(`🔍 Dashboard HTML length: ${dashboardResponse.data.length} characters`);
         
-        // Step 2: Search for the property in the search bar
-        console.log(`🔍 Searching for property: "${propertyName}"`);
-        
-        // Try to make a search request (this might be a POST or GET depending on Polaroo's implementation)
-        const searchResponse = await axios.post('https://app.polaroo.com/dashboard/accounting/search', {
-            query: propertyName,
-            filter: 'all'
-        }, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Cookie': cookies,
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            timeout: 15000
-        });
-        
-        console.log('✅ Search completed');
-        
-        // Step 3: Parse the actual HTML/JSON response to extract table data
-        const extractedData = parseTableDataFromResponse(searchResponse.data, propertyName);
-        
-        if (extractedData.length === 0) {
-            throw new Error(`No data found for property: ${propertyName}`);
+        // Check if we're actually logged in (not redirected to login)
+        if (dashboardResponse.data.includes('login') && !dashboardResponse.data.includes('dashboard')) {
+            throw new Error('Not properly logged in - redirected to login page');
         }
         
-        console.log(`✅ Found ${extractedData.length} rows for property "${propertyName}"`);
+        // Step 2: Extract the actual table data from the HTML
+        console.log(`🔍 Parsing HTML for property data...`);
+        const extractedData = parseAccountingTableFromHTML(dashboardResponse.data, propertyName);
+        
+        if (extractedData.length === 0) {
+            console.log('⚠️ No data found in table, trying search...');
+            // Try searching for the property
+            return await searchSpecificProperty(propertyName, cookies);
+        }
+        
+        console.log(`✅ Found ${extractedData.length} rows in accounting table`);
         return extractedData;
         
-    } catch (error) {
+      } catch (error) {
         console.error('❌ Error searching property in Polaroo:', error.message);
         throw new Error(`Failed to search property in Polaroo: ${error.message}`);
     }
+}
+
+// Helper function to parse the accounting table from HTML
+function parseAccountingTableFromHTML(html, propertyName) {
+    try {
+        // Look for table rows in the HTML
+        const tableRowRegex = /<tr[^>]*>[\s\S]*?<\/tr>/gi;
+        const rows = html.match(tableRowRegex) || [];
+        
+        const extractedData = [];
+        let rowNumber = 1;
+        
+        for (const row of rows) {
+            // Extract table cells
+            const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+            const cells = [];
+            let match;
+            
+            while ((match = cellRegex.exec(row)) !== null) {
+                // Clean up the cell content
+                const cellContent = match[1]
+                    .replace(/<[^>]*>/g, '') // Remove HTML tags
+                    .replace(/&nbsp;/g, ' ') // Replace &nbsp;
+                    .trim();
+                cells.push(cellContent);
+            }
+            
+            // If we have enough cells and it contains our property or relevant data
+            if (cells.length >= 6) {
+                // Try to identify the columns (this may need adjustment based on actual Polaroo HTML)
+                const rowData = {
+                    rowNumber: rowNumber++,
+                    asset: cells[0] || propertyName,
+                    company: cells[1] || 'Unknown Company',
+                    service: cells[2] || 'Unknown Service',
+                    initialDate: cells[3] || '',
+                    finalDate: cells[4] || '',
+                    subtotal: cells[5] || '0 €',
+                    taxes: cells[6] || '0 €',
+                    total: cells[7] || cells[5] || '0 €'
+                };
+                
+                // Only include if it's not a header row
+                if (!rowData.asset.toLowerCase().includes('asset') && 
+                    !rowData.company.toLowerCase().includes('company')) {
+                    extractedData.push(rowData);
+                }
+            }
+        }
+        
+        return extractedData;
+        
+    } catch (error) {
+        console.error('❌ Error parsing HTML table:', error.message);
+        return [];
+    }
+}
+
+// Helper function to search for specific property
+async function searchSpecificProperty(propertyName, cookies) {
+    console.log(`🔍 Searching specifically for: ${propertyName}`);
+    // If no data found in main table, we'll need to implement search
+    // For now, throw error to show we need to implement this
+    throw new Error(`Property "${propertyName}" not found in accounting dashboard - search functionality needed`);
+}
+
+// Helper function to filter bills for specific period (NO GAS EVER)
+function filterBillsForPeriod(rawData, dateRange, period) {
+    console.log(`🔍 Filtering bills for ${period} (${dateRange.start} to ${dateRange.end})`);
+    
+    const filteredBills = rawData.filter(bill => {
+        // EXCLUDE GAS COMPLETELY
+        if (bill.service && bill.service.toLowerCase().includes('gas')) {
+            console.log(`❌ EXCLUDED GAS BILL: ${bill.service} - ${bill.total}`);
+            return false;
+        }
+        
+        // Check if bill dates fall within the period
+        const billInPeriod = isDateInRange(bill.initialDate, dateRange.start, dateRange.end) ||
+                           isDateInRange(bill.finalDate, dateRange.start, dateRange.end);
+        
+        if (billInPeriod) {
+            console.log(`✅ INCLUDED: ${bill.service} - ${bill.total} (${bill.initialDate} to ${bill.finalDate})`);
+        } else {
+            console.log(`❌ EXCLUDED (date): ${bill.service} - ${bill.total} (${bill.initialDate} to ${bill.finalDate})`);
+        }
+        
+        return billInPeriod;
+    });
+    
+    console.log(`🎯 Filtered: ${filteredBills.length}/${rawData.length} bills (GAS COMPLETELY EXCLUDED)`);
+    return filteredBills;
 }
 
 // Helper function to parse table data from Polaroo response
@@ -318,8 +407,8 @@ function parseTableDataFromResponse(responseData, propertyName) {
         // and extract the real data from Polaroo
         
         throw new Error('HTML parsing not yet implemented - need to parse actual Polaroo table data');
-        
-      } catch (error) {
+
+  } catch (error) {
         throw new Error(`Failed to parse Polaroo data: ${error.message}`);
     }
 }
