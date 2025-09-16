@@ -1,6 +1,8 @@
 const express = require('express');
 const path = require('path');
 const axios = require('axios');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const { CohereClient } = require('cohere-ai');
 const XLSX = require('xlsx');
 require('dotenv').config();
@@ -131,12 +133,12 @@ app.post('/api/extract-data', async (req, res) => {
         
         // Step 3: Try Polaroo login with timeout protection
         console.log('🌐 Step 2: Attempting Polaroo login...');
-        let cookies = null;
+        let loginResult = null;
         try {
-            cookies = await Promise.race([
+            loginResult = await Promise.race([
                 loginToPolaroo(),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Login timeout after 15s')), 15000)
+                    setTimeout(() => reject(new Error('Login timeout after 20s')), 20000)
                 )
             ]);
             console.log('✅ Polaroo login successful');
@@ -150,7 +152,7 @@ app.post('/api/extract-data', async (req, res) => {
         let rawData;
         try {
             rawData = await Promise.race([
-                searchPropertyInPolaroo(propertyName, cookies),
+                searchPropertyInPolaroo(propertyName, loginResult.cookieString),
                 new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Search timeout after 15s')), 15000)
                 )
@@ -318,26 +320,91 @@ function getFirstPropertyFromBook1() {
     }
 }
 
-// Helper function to login to Polaroo
+// Helper function to login to Polaroo using Puppeteer (WORKING VERSION)
 async function loginToPolaroo() {
-    const formData = new URLSearchParams();
-    formData.append('email', 'francisco@node-living.com');
-    formData.append('password', 'Aribau126!');
+    console.log('🌐 Launching browser for Polaroo login...');
     
-    const loginResponse = await axios.post('https://app.polaroo.com/login', formData, {
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://app.polaroo.com/login'
-        },
-        maxRedirects: 5,
-        timeout: 10000,
-        validateStatus: function (status) {
-            return status >= 200 && status < 500;
-        }
+    const browser = await puppeteer.launch({
+        headless: process.env.NODE_ENV === 'production' ? 'new' : false,
+        executablePath: process.env.NODE_ENV === 'production' 
+            ? await chromium.executablePath() 
+            : undefined,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--window-size=1280,720'
+        ]
     });
     
-    return loginResponse.headers['set-cookie']?.join('; ') || '';
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    
+    try {
+        console.log('🌐 Going to Polaroo login page...');
+        await page.goto('https://app.polaroo.com/login', { 
+            waitUntil: 'domcontentloaded',
+            timeout: 30000 
+        });
+        
+        console.log('📧 Copy-pasting email...');
+        await page.waitForSelector('input[name="email"]', { timeout: 10000 });
+        await page.evaluate((email) => {
+            const emailField = document.querySelector('input[name="email"]');
+            if (emailField) {
+                emailField.value = email;
+                emailField.dispatchEvent(new Event('input', { bubbles: true }));
+                emailField.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 'francisco@node-living.com');
+        
+        console.log('🔒 Copy-pasting password...');
+        await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+        await page.evaluate((password) => {
+            const passwordField = document.querySelector('input[name="password"]');
+            if (passwordField) {
+                passwordField.value = password;
+                passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+                passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 'Aribau126!');
+        
+        console.log('🖱️ Clicking Sign in button...');
+        await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const signInButton = buttons.find(btn => btn.textContent.trim() === 'Sign in');
+            if (signInButton) {
+                signInButton.click();
+                return true;
+            }
+            throw new Error('Sign in button not found');
+        });
+        
+        console.log('⏳ Waiting for login to complete...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const currentUrl = page.url();
+        console.log(`📍 Current URL: ${currentUrl}`);
+        
+        if (currentUrl.includes('dashboard')) {
+            console.log('✅ Successfully logged into Polaroo!');
+            
+            // Get cookies for future requests
+            const cookies = await page.cookies();
+            const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+            
+            await browser.close();
+            return { cookieString, page: null };
+            
+        } else {
+            throw new Error(`Login failed - still on: ${currentUrl}`);
+        }
+        
+      } catch (error) {
+        await browser.close();
+        throw error;
+    }
 }
 
 // Helper function to search property in Polaroo
@@ -382,8 +449,8 @@ async function searchPropertyInPolaroo(propertyName, cookies) {
         
         console.log(`✅ Found ${extractedData.length} rows in accounting table`);
         return extractedData;
-        
-      } catch (error) {
+
+  } catch (error) {
         console.error('❌ Error searching property in Polaroo:', error.message);
         throw new Error(`Failed to search property in Polaroo: ${error.message}`);
     }
