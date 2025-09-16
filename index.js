@@ -21,9 +21,9 @@ app.post('/api/calculate', async (req, res) => {
     try {
         console.log('🤖 Starting Polaroo bot...');
         
-        // Launch Chrome - ALWAYS VISIBLE (even on Render)
+        // Launch Chrome - VISIBLE locally, headless on Render
         const browser = await puppeteer.launch({
-            headless: false, // ALWAYS VISIBLE - you want to see what's happening
+            headless: process.env.NODE_ENV === 'production' ? 'new' : false, // Headless on Render, visible locally
             executablePath: process.env.NODE_ENV === 'production' 
                 ? await chromium.executablePath() 
                 : undefined,
