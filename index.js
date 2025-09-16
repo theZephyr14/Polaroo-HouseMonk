@@ -43,18 +43,26 @@ app.post('/api/calculate', async (req, res) => {
     await page.setViewport({ width: 1280, height: 720 });
 
         console.log('🌐 Step 1: Going to Polaroo login page...');
+        console.log('⏳ Waiting 5 seconds before navigation...');
+        await page.waitForTimeout(5000);
+        
         await page.goto('https://app.polaroo.com/login', { 
-            waitUntil: 'domcontentloaded',
+            waitUntil: 'networkidle0', // Wait for all network activity to stop
             timeout: 30000 
         });
         console.log('✅ Login page loaded');
-        console.log('⏳ Waiting 5 seconds so you can see the login page...');
-        await page.waitForTimeout(5000); // 5 second pause
+        console.log('⏳ Waiting 5 seconds after page load...');
+        await page.waitForTimeout(5000);
+        
+        console.log('⏳ Waiting 5 more seconds for dynamic content...');
+        await page.waitForTimeout(5000);
 
         console.log('🔍 Step 2: Looking for email field...');
+        console.log('⏳ Waiting 5 seconds before looking for inputs...');
+        await page.waitForTimeout(5000);
         
-        // Wait for page to fully load
-        await page.waitForTimeout(3000);
+        console.log('⏳ Waiting 5 seconds before getting input fields...');
+        await page.waitForTimeout(5000);
         
         // Get all input fields on the page for debugging
         const inputs = await page.$$eval('input', inputs => 
@@ -67,65 +75,63 @@ app.post('/api/calculate', async (req, res) => {
             }))
         );
         console.log('📋 All input fields found:', JSON.stringify(inputs, null, 2));
+        console.log('⏳ Waiting 5 seconds after getting input fields...');
+        await page.waitForTimeout(5000);
         
         // Try multiple selectors for email field - based on actual login page
         let emailSelector = null;
         const emailSelectors = [
-            'input[placeholder="Email"]',
-            'input[placeholder*="Email"]',
-            'input[placeholder="email"]',
-            'input[placeholder*="email"]',
-            'input[placeholder="EMAIL"]',
-            'input[placeholder*="EMAIL"]',
-            'input[placeholder="Username"]',
-            'input[placeholder*="Username"]',
-            'input[placeholder="username"]',
-            'input[placeholder*="username"]',
-            'input[placeholder="USERNAME"]',
-            'input[placeholder*="USERNAME"]',
             'input[type="email"]',
-            'input[name="email"]', 
-            'input[id="email"]',
             'input[type="text"]',
+            'input[name="email"]',
+            'input[id="email"]',
+            'input[placeholder*="email" i]',
+            'input[placeholder*="Email" i]',
+            'input[placeholder*="username" i]',
+            'input[placeholder*="Username" i]',
             'input[class*="email" i]',
             'input[class*="Email" i]',
-            'input[class*="EMAIL" i]',
             'input[class*="username" i]',
             'input[class*="Username" i]',
-            'input[class*="USERNAME" i]',
-            'form input[type="text"]',
-            'form input[type="email"]',
-            'div input[type="text"]',
-            'div input[type="email"]'
+            'form input',
+            'div input',
+            'input'
         ];
         
         for (const selector of emailSelectors) {
             console.log(`🔍 Trying email selector: ${selector}`);
+            console.log('⏳ Waiting 5 seconds before trying this selector...');
+            await page.waitForTimeout(5000);
+            
             try {
                 await page.waitForSelector(selector, { timeout: 2000 });
                 emailSelector = selector;
                 console.log(`✅ SUCCESS! Found email field with selector: ${selector}`);
+                console.log('⏳ Waiting 5 seconds after finding email field...');
+                await page.waitForTimeout(5000);
         break;
       } catch (e) {
                 console.log(`❌ FAILED! Selector ${selector} - ${e.message}`);
+                console.log('⏳ Waiting 5 seconds before trying next selector...');
+                await page.waitForTimeout(5000);
             }
         }
         
         if (!emailSelector) {
-            // Take screenshot for debugging
-            await page.screenshot({ path: 'debug-login-page.png' });
-            console.log('📸 Screenshot saved as debug-login-page.png');
-            throw new Error('Could not find email field with any selector. Check debug-login-page.png');
+            throw new Error('Could not find email field with any selector');
         }
         
         console.log('⏳ Waiting 5 seconds so you can see the email field...');
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('📧 Step 3: Filling email field...');
+        console.log('⏳ Waiting 5 seconds before typing email...');
+        await page.waitForTimeout(5000);
+        
         await page.type(emailSelector, 'francisco@node-living.com', { delay: 200 });
         console.log('✅ Email filled');
         console.log('⏳ Waiting 5 seconds so you can see the filled email...');
-        await page.waitForTimeout(5000); // 5 second pause
+        await page.waitForTimeout(5000);
 
         console.log('🔍 Step 4: Looking for password field...');
         
@@ -142,13 +148,20 @@ app.post('/api/calculate', async (req, res) => {
         
         for (const selector of passwordSelectors) {
             console.log(`🔍 Trying password selector: ${selector}`);
+            console.log('⏳ Waiting 5 seconds before trying this password selector...');
+            await page.waitForTimeout(5000);
+            
             try {
                 await page.waitForSelector(selector, { timeout: 2000 });
                 passwordSelector = selector;
                 console.log(`✅ SUCCESS! Found password field with selector: ${selector}`);
+                console.log('⏳ Waiting 5 seconds after finding password field...');
+                await page.waitForTimeout(5000);
                 break;
             } catch (e) {
                 console.log(`❌ FAILED! Password selector ${selector} - ${e.message}`);
+                console.log('⏳ Waiting 5 seconds before trying next password selector...');
+                await page.waitForTimeout(5000);
             }
         }
         
@@ -160,10 +173,13 @@ app.post('/api/calculate', async (req, res) => {
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('🔒 Step 5: Filling password field...');
+        console.log('⏳ Waiting 5 seconds before typing password...');
+        await page.waitForTimeout(5000);
+        
         await page.type(passwordSelector, 'Aribau126!', { delay: 200 });
         console.log('✅ Password filled');
         console.log('⏳ Waiting 5 seconds so you can see the filled password...');
-        await page.waitForTimeout(5000); // 5 second pause
+        await page.waitForTimeout(5000);
 
         console.log('🖱️ Step 6: Clicking login button...');
         
@@ -183,13 +199,20 @@ app.post('/api/calculate', async (req, res) => {
         
         for (const selector of loginButtonSelectors) {
             console.log(`🔍 Trying login button selector: ${selector}`);
+            console.log('⏳ Waiting 5 seconds before trying this login button selector...');
+    await page.waitForTimeout(5000);
+
             try {
                 await page.waitForSelector(selector, { timeout: 2000 });
                 loginButtonSelector = selector;
                 console.log(`✅ SUCCESS! Found login button with selector: ${selector}`);
+                console.log('⏳ Waiting 5 seconds after finding login button...');
+                await page.waitForTimeout(5000);
                 break;
             } catch (e) {
                 console.log(`❌ FAILED! Login button selector ${selector} - ${e.message}`);
+                console.log('⏳ Waiting 5 seconds before trying next login button selector...');
+                await page.waitForTimeout(5000);
             }
         }
         
@@ -197,10 +220,13 @@ app.post('/api/calculate', async (req, res) => {
             throw new Error('Could not find login button with any selector');
         }
         
+        console.log('⏳ Waiting 5 seconds before clicking login button...');
+        await page.waitForTimeout(5000);
+        
         await page.click(loginButtonSelector);
         console.log('✅ Login button clicked');
         console.log('⏳ Waiting 5 seconds so you can see the click...');
-        await page.waitForTimeout(5000); // 5 second pause
+        await page.waitForTimeout(5000);
 
         console.log('⏳ Step 7: Waiting for login to complete...');
         await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
