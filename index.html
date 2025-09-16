@@ -197,7 +197,21 @@
                     });
                     
                     addLog('📥 Response received...');
-                    const result = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const responseText = await response.text();
+                    console.log('Raw response:', responseText);
+                    
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+                    }
                     
                     if (result.success) {
                         addLog('✅ Data extracted successfully!');
