@@ -91,15 +91,18 @@ app.post('/api/extract-data', async (req, res) => {
         const { propertyName, totalProperties } = getFirstPropertyFromBook1();
         console.log(`✅ Property: ${propertyName} (${totalProperties} total properties)`);
         
-        // Step 2: Get date range first
+        // Step 2: Login to Polaroo
+        console.log('🌐 Logging into Polaroo...');
+        const cookies = await loginToPolaroo();
+        console.log('✅ Successfully logged into Polaroo');
+        
+        // Step 3: Search for property and get REAL data from Polaroo
+        console.log(`🔍 Searching for "${propertyName}" in Polaroo...`);
+        const rawData = await searchPropertyInPolaroo(propertyName, cookies);
+        console.log(`✅ Found ${rawData.length} bills for ${propertyName}`);
+        
+        // Step 4: Get date range and filter bills
         const dateRange = getPeriodDateRange(period);
-        
-        // Step 3: TEST MODE - Generate realistic data for debugging
-        console.log('🧪 TEST MODE: Generating realistic data for debugging...');
-        const rawData = generateRealisticTestData(propertyName, dateRange);
-        console.log(`✅ Generated ${rawData.length} test bills for ${propertyName}`);
-        
-        // Step 4: Filter out GAS bills and select relevant period  
         const filteredData = filterBillsForPeriod(rawData, dateRange, period);
         console.log(`✅ Filtered to ${filteredData.length} bills (NO GAS)`);
         
@@ -110,13 +113,15 @@ app.post('/api/extract-data', async (req, res) => {
             data: filteredData,
             period: period,
             propertyName: propertyName,
-            message: `REAL data from Polaroo for ${propertyName} - ${period}`,
+            message: `LIVE Polaroo data for ${propertyName} - ${period}`,
             debug: {
                 totalRows: rawData.length,
                 filteredRows: filteredData.length,
                 dateRange: dateRange,
                 timestamp: new Date().toISOString(),
-                note: "✅ REAL DATA from Polaroo - Gas bills excluded"
+                note: "🔴 LIVE DATA from Polaroo accounting dashboard - Gas bills excluded",
+                loginSuccess: "✅ Logged into Polaroo successfully",
+                searchSuccess: "✅ Property found in Polaroo"
             }
         });
 
@@ -327,9 +332,12 @@ async function searchPropertyInPolaroo(propertyName, cookies) {
 // Helper function to parse the accounting table from HTML
 function parseAccountingTableFromHTML(html, propertyName) {
     try {
+        console.log('🔍 Parsing HTML table for accounting data...');
+        
         // Look for table rows in the HTML
         const tableRowRegex = /<tr[^>]*>[\s\S]*?<\/tr>/gi;
         const rows = html.match(tableRowRegex) || [];
+        console.log(`🔍 Found ${rows.length} table rows in HTML`);
         
         const extractedData = [];
         let rowNumber = 1;
@@ -345,33 +353,40 @@ function parseAccountingTableFromHTML(html, propertyName) {
                 const cellContent = match[1]
                     .replace(/<[^>]*>/g, '') // Remove HTML tags
                     .replace(/&nbsp;/g, ' ') // Replace &nbsp;
+                    .replace(/&amp;/g, '&') // Replace &amp;
                     .trim();
                 cells.push(cellContent);
             }
             
-            // If we have enough cells and it contains our property or relevant data
-            if (cells.length >= 6) {
-                // Try to identify the columns (this may need adjustment based on actual Polaroo HTML)
+            // Based on your Polaroo screenshot, the columns are:
+            // [#, Provider, Company, NIF/CIF, Service, Initial Date, Final Date, Subtotal, Taxes, Total]
+            if (cells.length >= 8) {
                 const rowData = {
                     rowNumber: rowNumber++,
-                    asset: cells[0] || propertyName,
-                    company: cells[1] || 'Unknown Company',
-                    service: cells[2] || 'Unknown Service',
-                    initialDate: cells[3] || '',
-                    finalDate: cells[4] || '',
-                    subtotal: cells[5] || '0 €',
-                    taxes: cells[6] || '0 €',
-                    total: cells[7] || cells[5] || '0 €'
+                    asset: propertyName, // Use the searched property name
+                    company: cells[2] || 'Unknown Company', // Company column
+                    service: cells[4] || 'Unknown Service', // Service column
+                    initialDate: cells[5] || '', // Initial Date column
+                    finalDate: cells[6] || '', // Final Date column
+                    subtotal: cells[7] || '0 €', // Subtotal column
+                    taxes: cells[8] || '0 €', // Taxes column
+                    total: cells[9] || cells[7] || '0 €' // Total column
                 };
                 
-                // Only include if it's not a header row
-                if (!rowData.asset.toLowerCase().includes('asset') && 
-                    !rowData.company.toLowerCase().includes('company')) {
+                // Only include if it's not a header row and has valid data
+                if (rowData.service && 
+                    !rowData.service.toLowerCase().includes('service') && 
+                    !rowData.company.toLowerCase().includes('company') &&
+                    rowData.initialDate &&
+                    rowData.initialDate.includes('/')) { // Valid date format
+                    
+                    console.log(`✅ Extracted bill: ${rowData.service} - ${rowData.total} (${rowData.initialDate} to ${rowData.finalDate})`);
                     extractedData.push(rowData);
                 }
             }
         }
         
+        console.log(`✅ Successfully parsed ${extractedData.length} bills from HTML`);
         return extractedData;
         
     } catch (error) {
@@ -382,10 +397,45 @@ function parseAccountingTableFromHTML(html, propertyName) {
 
 // Helper function to search for specific property
 async function searchSpecificProperty(propertyName, cookies) {
-    console.log(`🔍 Searching specifically for: ${propertyName}`);
-    // If no data found in main table, we'll need to implement search
-    // For now, throw error to show we need to implement this
-    throw new Error(`Property "${propertyName}" not found in accounting dashboard - search functionality needed`);
+    try {
+        console.log(`🔍 Searching specifically for: ${propertyName}`);
+        
+        // Try to use the search functionality in Polaroo
+        // Based on the screenshot, there's a search input field
+        const searchUrl = 'https://app.polaroo.com/dashboard/accounting';
+        
+        // Make a request with search parameters
+        const searchResponse = await axios.get(searchUrl, {
+            params: {
+                search: propertyName,
+                filter: 'all'
+            },
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Cookie': cookies,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Referer': 'https://app.polaroo.com/dashboard/accounting'
+            },
+            timeout: 15000
+        });
+        
+        console.log(`🔍 Search response status: ${searchResponse.status}`);
+        console.log(`🔍 Search response length: ${searchResponse.data.length} characters`);
+        
+        // Parse the search results
+        const searchResults = parseAccountingTableFromHTML(searchResponse.data, propertyName);
+        
+        if (searchResults.length === 0) {
+            throw new Error(`No bills found for property "${propertyName}" in Polaroo search results`);
+        }
+        
+        console.log(`✅ Found ${searchResults.length} bills through search for "${propertyName}"`);
+        return searchResults;
+        
+    } catch (error) {
+        console.error(`❌ Error searching for property "${propertyName}":`, error.message);
+        throw new Error(`Failed to search for property "${propertyName}": ${error.message}`);
+    }
 }
 
 // Helper function to filter bills for specific period (NO GAS EVER)
