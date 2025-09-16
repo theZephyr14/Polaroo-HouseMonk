@@ -40,7 +40,7 @@ app.post('/api/calculate', async (req, res) => {
         });
 
         const page = await browser.newPage();
-        await page.setViewport({ width: 1280, height: 720 });
+    await page.setViewport({ width: 1280, height: 720 });
 
         console.log('🌐 Step 1: Going to Polaroo login page...');
         await page.goto('https://app.polaroo.com/login', { 
@@ -68,29 +68,46 @@ app.post('/api/calculate', async (req, res) => {
         );
         console.log('📋 All input fields found:', JSON.stringify(inputs, null, 2));
         
-        // Try multiple selectors for email field
+        // Try multiple selectors for email field - based on actual login page
         let emailSelector = null;
         const emailSelectors = [
+            'input[placeholder="Email"]',
+            'input[placeholder*="Email"]',
+            'input[placeholder="email"]',
+            'input[placeholder*="email"]',
+            'input[placeholder="EMAIL"]',
+            'input[placeholder*="EMAIL"]',
+            'input[placeholder="Username"]',
+            'input[placeholder*="Username"]',
+            'input[placeholder="username"]',
+            'input[placeholder*="username"]',
+            'input[placeholder="USERNAME"]',
+            'input[placeholder*="USERNAME"]',
             'input[type="email"]',
             'input[name="email"]', 
             'input[id="email"]',
-            'input[placeholder*="email" i]',
-            'input[placeholder*="Email" i]',
-            'input[placeholder*="username" i]',
-            'input[placeholder*="Username" i]',
             'input[type="text"]',
             'input[class*="email" i]',
-            'input[class*="Email" i]'
+            'input[class*="Email" i]',
+            'input[class*="EMAIL" i]',
+            'input[class*="username" i]',
+            'input[class*="Username" i]',
+            'input[class*="USERNAME" i]',
+            'form input[type="text"]',
+            'form input[type="email"]',
+            'div input[type="text"]',
+            'div input[type="email"]'
         ];
         
         for (const selector of emailSelectors) {
+            console.log(`🔍 Trying email selector: ${selector}`);
             try {
                 await page.waitForSelector(selector, { timeout: 2000 });
                 emailSelector = selector;
-                console.log(`✅ Found email field with selector: ${selector}`);
-                break;
-            } catch (e) {
-                console.log(`❌ Selector failed: ${selector}`);
+                console.log(`✅ SUCCESS! Found email field with selector: ${selector}`);
+        break;
+      } catch (e) {
+                console.log(`❌ FAILED! Selector ${selector} - ${e.message}`);
             }
         }
         
@@ -111,19 +128,76 @@ app.post('/api/calculate', async (req, res) => {
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('🔍 Step 4: Looking for password field...');
-        await page.waitForSelector('input[type="password"], input[name="password"]', { timeout: 15000 });
-        console.log('✅ Found password field');
+        
+        // Try multiple selectors for password field
+        let passwordSelector = null;
+        const passwordSelectors = [
+            'input[placeholder="Password"]',
+            'input[placeholder*="Password"]',
+            'input[type="password"]',
+            'input[name="password"]',
+            'input[id="password"]',
+            'form input[type="password"]'
+        ];
+        
+        for (const selector of passwordSelectors) {
+            console.log(`🔍 Trying password selector: ${selector}`);
+            try {
+                await page.waitForSelector(selector, { timeout: 2000 });
+                passwordSelector = selector;
+                console.log(`✅ SUCCESS! Found password field with selector: ${selector}`);
+                break;
+            } catch (e) {
+                console.log(`❌ FAILED! Password selector ${selector} - ${e.message}`);
+            }
+        }
+        
+        if (!passwordSelector) {
+            throw new Error('Could not find password field with any selector');
+        }
+        
         console.log('⏳ Waiting 5 seconds so you can see the password field...');
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('🔒 Step 5: Filling password field...');
-        await page.type('input[type="password"], input[name="password"]', 'Aribau126!', { delay: 200 });
+        await page.type(passwordSelector, 'Aribau126!', { delay: 200 });
         console.log('✅ Password filled');
         console.log('⏳ Waiting 5 seconds so you can see the filled password...');
         await page.waitForTimeout(5000); // 5 second pause
 
         console.log('🖱️ Step 6: Clicking login button...');
-        await page.click('button[type="submit"], input[type="submit"], button:contains("Sign in")');
+        
+        // Try multiple selectors for login button
+        let loginButtonSelector = null;
+        const loginButtonSelectors = [
+            'button:contains("Sign in")',
+            'button:contains("Sign In")',
+            'button[type="submit"]',
+            'input[type="submit"]',
+            'button:contains("Login")',
+            'button:contains("LOGIN")',
+            'form button',
+            'button[class*="submit"]',
+            'button[class*="login"]'
+        ];
+        
+        for (const selector of loginButtonSelectors) {
+            console.log(`🔍 Trying login button selector: ${selector}`);
+            try {
+                await page.waitForSelector(selector, { timeout: 2000 });
+                loginButtonSelector = selector;
+                console.log(`✅ SUCCESS! Found login button with selector: ${selector}`);
+                break;
+            } catch (e) {
+                console.log(`❌ FAILED! Login button selector ${selector} - ${e.message}`);
+            }
+        }
+        
+        if (!loginButtonSelector) {
+            throw new Error('Could not find login button with any selector');
+        }
+        
+        await page.click(loginButtonSelector);
         console.log('✅ Login button clicked');
         console.log('⏳ Waiting 5 seconds so you can see the click...');
         await page.waitForTimeout(5000); // 5 second pause
@@ -158,10 +232,10 @@ app.post('/api/calculate', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Bot error:', error);
-        res.status(500).json({ 
+  res.status(500).json({ 
             success: false, 
             error: error.message 
-        });
+  });
     }
 });
 
