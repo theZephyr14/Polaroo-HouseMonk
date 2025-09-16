@@ -131,40 +131,24 @@ app.post('/api/extract-data', async (req, res) => {
         const dateRange = getPeriodDateRange(period);
         console.log(`📅 Date range: ${dateRange.start} to ${dateRange.end}`);
         
-        // Step 3: Try Polaroo login with timeout protection
-        console.log('🌐 Step 2: Attempting Polaroo login...');
-        let loginResult = null;
-        try {
-            loginResult = await Promise.race([
-                loginToPolaroo(),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Login timeout after 20s')), 20000)
-                )
-            ]);
-            console.log('✅ Polaroo login successful');
-        } catch (loginError) {
-            console.error('❌ Polaroo login failed:', loginError.message);
-            throw new Error(`Cannot connect to Polaroo: ${loginError.message}`);
-        }
-        
-        // Step 4: Search for property with timeout protection
-        console.log(`🔍 Step 3: Searching for "${propertyName}" in Polaroo...`);
+        // Step 2: Get complete data from Polaroo (login + search + extract)
+        console.log('🌐 Getting complete data from Polaroo...');
         let rawData;
         try {
             rawData = await Promise.race([
-                searchPropertyInPolaroo(propertyName, loginResult.cookieString),
+                getPolarooDataForProperty(propertyName),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Search timeout after 15s')), 15000)
+                    setTimeout(() => reject(new Error('Polaroo operation timeout after 25s')), 25000)
                 )
             ]);
-            console.log(`✅ Found ${rawData.length} bills for ${propertyName}`);
-        } catch (searchError) {
-            console.error('❌ Property search failed:', searchError.message);
-            throw new Error(`Cannot find property in Polaroo: ${searchError.message}`);
+            console.log(`✅ Got ${rawData.length} bills from Polaroo for "${propertyName}"`);
+        } catch (polarooError) {
+            console.error('❌ Polaroo integration failed:', polarooError.message);
+            throw new Error(`Polaroo integration failed: ${polarooError.message}`);
         }
         
-        // Step 5: Filter bills
-        console.log(`🔍 Step 4: Filtering bills for ${period}...`);
+        // Step 3: Filter bills by date and exclude gas
+        console.log(`🔍 Filtering bills for ${period}...`);
         const filteredData = filterBillsForPeriod(rawData, dateRange, period);
         console.log(`✅ Filtered to ${filteredData.length} bills (NO GAS)`);
         
@@ -320,9 +304,9 @@ function getFirstPropertyFromBook1() {
     }
 }
 
-// Helper function to login to Polaroo using Puppeteer (WORKING VERSION)
-async function loginToPolaroo() {
-    console.log('🌐 Launching browser for Polaroo login...');
+// Complete Polaroo integration - login, search, extract data
+async function getPolarooDataForProperty(propertyName) {
+    console.log('🌐 Launching browser for complete Polaroo integration...');
     
     const browser = await puppeteer.launch({
         headless: process.env.NODE_ENV === 'production' ? 'new' : false,
@@ -334,7 +318,8 @@ async function loginToPolaroo() {
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--window-size=1280,720'
+            '--window-size=1280,720',
+            '--single-process'
         ]
     });
     
@@ -342,6 +327,7 @@ async function loginToPolaroo() {
     await page.setViewport({ width: 1280, height: 720 });
     
     try {
+        // Step 1: Login to Polaroo
         console.log('🌐 Going to Polaroo login page...');
         await page.goto('https://app.polaroo.com/login', { 
             waitUntil: 'domcontentloaded',
@@ -355,7 +341,6 @@ async function loginToPolaroo() {
             if (emailField) {
                 emailField.value = email;
                 emailField.dispatchEvent(new Event('input', { bubbles: true }));
-                emailField.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }, 'francisco@node-living.com');
         
@@ -366,7 +351,6 @@ async function loginToPolaroo() {
             if (passwordField) {
                 passwordField.value = password;
                 passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-                passwordField.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }, 'Aribau126!');
         
@@ -376,32 +360,67 @@ async function loginToPolaroo() {
             const signInButton = buttons.find(btn => btn.textContent.trim() === 'Sign in');
             if (signInButton) {
                 signInButton.click();
-                return true;
             }
-            throw new Error('Sign in button not found');
         });
         
-        console.log('⏳ Waiting for login to complete...');
+        console.log('⏳ Waiting for dashboard redirect...');
         await new Promise(resolve => setTimeout(resolve, 5000));
         
-        const currentUrl = page.url();
-        console.log(`📍 Current URL: ${currentUrl}`);
+        // Step 2: Go to accounting page
+        console.log('🌐 Going to accounting dashboard...');
+        await page.goto('https://app.polaroo.com/dashboard/accounting', { 
+            waitUntil: 'domcontentloaded',
+            timeout: 30000 
+        });
         
-        if (currentUrl.includes('dashboard')) {
-            console.log('✅ Successfully logged into Polaroo!');
-            
-            // Get cookies for future requests
-            const cookies = await page.cookies();
-            const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-            
-            await browser.close();
-            return { cookieString, page: null };
-            
-        } else {
-            throw new Error(`Login failed - still on: ${currentUrl}`);
-        }
+        // Step 3: Search for the property
+        console.log(`🔍 Searching for "${propertyName}" in search box...`);
         
-      } catch (error) {
+        // Find and fill the search box (as shown in your screenshot)
+        const searchInput = await page.waitForSelector('input[type="text"], input[placeholder*="search" i], input[name*="search" i]', { timeout: 10000 });
+        
+        // Clear and fill search box
+        await page.evaluate((input, property) => {
+            input.value = '';
+            input.value = property;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }, searchInput, propertyName);
+        
+        console.log(`✅ Entered "${propertyName}" in search box`);
+        
+        // Wait for table to update
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Step 4: Extract table data
+        console.log('📊 Extracting table data...');
+        const tableData = await page.evaluate((searchedProperty) => {
+            const rows = Array.from(document.querySelectorAll('tbody tr, table tr'));
+            return rows.map((row, index) => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                if (cells.length >= 8) {
+                    return {
+                        rowNumber: index + 1,
+                        asset: searchedProperty, // Use the searched property name
+                        company: cells[2]?.textContent?.trim() || '',
+                        service: cells[4]?.textContent?.trim() || '',
+                        initialDate: cells[5]?.textContent?.trim() || '',
+                        finalDate: cells[6]?.textContent?.trim() || '',
+                        subtotal: cells[7]?.textContent?.trim() || '',
+                        taxes: cells[8]?.textContent?.trim() || '',
+                        total: cells[9]?.textContent?.trim() || ''
+                    };
+                }
+                return null;
+            }).filter(row => row && row.service && !row.service.toLowerCase().includes('service'));
+        }, propertyName);
+        
+        console.log(`✅ Extracted ${tableData.length} rows from Polaroo table`);
+        
+        await browser.close();
+        return tableData;
+        
+    } catch (error) {
         await browser.close();
         throw error;
     }
