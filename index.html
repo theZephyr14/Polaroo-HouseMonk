@@ -201,7 +201,12 @@
                     
                     if (result.success) {
                         addLog('✅ Data extracted successfully!');
-                        displayData(result.data);
+                        addLog(`🏠 Property: ${result.propertyName}`);
+                        addLog(`🧠 Cohere Analysis: ${result.cohereAnalysis.reasoning}`);
+                        addLog(`⚡ Electricity rows: ${result.cohereAnalysis.selected_electricity_rows?.join(', ') || 'None'}`);
+                        addLog(`💧 Water rows: ${result.cohereAnalysis.selected_water_rows?.join(', ') || 'None'}`);
+                        addLog(`📊 Total: ${result.debug.filteredRows}/${result.debug.totalRows} rows selected`);
+                        displayData(result.data, result.cohereAnalysis);
                     } else {
                         addLog('❌ Extraction failed: ' + result.error);
                         alert('Data extraction failed: ' + result.error);
@@ -215,7 +220,7 @@
                 buttons.forEach(btn => btn.disabled = false);
             }
             
-            function displayData(data) {
+            function displayData(data, cohereAnalysis) {
                 const resultsContainer = document.getElementById('results-container');
                 const tableContainer = document.getElementById('table-container');
                 
