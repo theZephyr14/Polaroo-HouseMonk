@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+const axios = require('axios');
 const XLSX = require('xlsx');
 require('dotenv').config();
 
@@ -30,102 +29,61 @@ app.post('/api/test', (req, res) => {
     });
 });
 
-// Bot API endpoint
+// Bot API endpoint - NO PUPPETEER!
 app.post('/api/calculate', async (req, res) => {
-    // Set response timeout
-    res.setTimeout(120000); // 2 minutes max
-    
-    let browser = null;
     try {
-        console.log('🤖 Starting Polaroo bot...');
+        console.log('🤖 Starting Polaroo bot (HTTP version)...');
         
-        // Launch Chrome - Simplified for Render
-        const launchOptions = {
-            headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-web-security',
-                '--single-process'
-            ]
-        };
-
-        // Use chromium on production, system chrome locally
-        if (process.env.NODE_ENV === 'production') {
-            launchOptions.executablePath = await chromium.executablePath();
-        } else {
-            launchOptions.headless = false;
-        }
-
-        browser = await puppeteer.launch(launchOptions);
-
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1280, height: 720 });
-
-        console.log('🌐 Step 1: Going to Polaroo login page...');
-        await page.goto('https://app.polaroo.com/login', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 30000 
+        // Step 1: Get login page to get CSRF token or session
+        console.log('🌐 Step 1: Getting login page...');
+        const loginPageResponse = await axios.get('https://app.polaroo.com/login', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
         });
         console.log('✅ Login page loaded');
         
-        // Check if already logged in
-        const currentUrl = page.url();
-        if (currentUrl.includes('dashboard')) {
-            console.log('✅ Already logged in, redirected to dashboard');
-        } else {
-            console.log('📝 Filling login form...');
-            await page.fill('input[name="email"]', 'francisco@node-living.com');
-            await page.fill('input[name="password"]', 'Aribau126!');
-            
-            console.log('🖱️ Clicking submit button...');
-            await page.click('button[type="submit"]');
-            
-            // Wait for redirect to dashboard (fast polling)
-            console.log('⏳ Waiting for redirect to dashboard...');
-            for (let i = 0; i < 60; i++) { // 30 seconds max
-                await page.waitForTimeout(500);
-                const url = page.url();
-                if (url.includes('dashboard')) {
-                    console.log('✅ Successfully logged in');
-                    break;
-                }
+        // Step 2: Try to login with POST request
+        console.log('📝 Step 2: Attempting login...');
+        const loginResponse = await axios.post('https://app.polaroo.com/login', {
+            email: 'francisco@node-living.com',
+            password: 'Aribau126!'
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            maxRedirects: 0,
+            validateStatus: function (status) {
+                return status >= 200 && status < 400; // Accept redirects
             }
-        }
-
-        console.log('🌐 Step 2: Going to accounting dashboard...');
-        await page.goto('https://app.polaroo.com/dashboard/accounting', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 30000 
         });
-        console.log('✅ Accounting dashboard loaded');
+        console.log('✅ Login request sent');
+        
+        // Step 3: Try to access accounting dashboard
+        console.log('🌐 Step 3: Accessing accounting dashboard...');
+        const dashboardResponse = await axios.get('https://app.polaroo.com/dashboard/accounting', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Cookie': loginResponse.headers['set-cookie']?.join('; ') || ''
+            }
+        });
+        console.log('✅ Accounting dashboard accessed');
 
         console.log('🎉 Bot completed successfully!');
         
-        // Close browser immediately on server
-        await browser.close();
-        console.log('🔒 Browser closed');
-
         res.json({ 
             success: true, 
-            message: 'Bot completed successfully!' 
+            message: 'Bot completed successfully! (HTTP version)',
+            status: dashboardResponse.status
         });
 
-  } catch (error) {
-        console.error('❌ Bot error:', error);
-    if (browser) {
-            try {
-      await browser.close();
-            } catch (e) {
-                console.error('Error closing browser:', e);
-            }
-        }
-        res.status(500).json({ 
+    } catch (error) {
+        console.error('❌ Bot error:', error.message);
+  res.status(500).json({ 
             success: false, 
             error: error.message 
-        });
+  });
     }
 });
 
