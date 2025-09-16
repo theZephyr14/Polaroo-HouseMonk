@@ -16,13 +16,19 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Bot API endpoint
 app.post('/api/calculate', async (req, res) => {
+    let browser = null;
     try {
         console.log('🤖 Starting Polaroo bot...');
         
         // Launch Chrome - VISIBLE locally, headless on Render
-        const browser = await puppeteer.launch({
+        browser = await puppeteer.launch({
             headless: process.env.NODE_ENV === 'production' ? 'new' : false, // Headless on Render, visible locally
             executablePath: process.env.NODE_ENV === 'production' 
                 ? await chromium.executablePath() 
@@ -40,7 +46,7 @@ app.post('/api/calculate', async (req, res) => {
         });
 
         const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 720 });
+        await page.setViewport({ width: 1280, height: 720 });
 
         console.log('🌐 Step 1: Going to Polaroo login page...');
         await page.goto('https://app.polaroo.com/login', { 
@@ -82,23 +88,28 @@ app.post('/api/calculate', async (req, res) => {
 
         console.log('🎉 Bot completed successfully!');
         
-        // Keep browser open for 30 seconds so you can see the result
-        console.log('⏳ Keeping browser open for 30 seconds so you can see the result...');
-        await page.waitForTimeout(30000);
+        // Close browser immediately on server
         await browser.close();
         console.log('🔒 Browser closed');
 
         res.json({ 
             success: true, 
-            message: 'Bot completed successfully! Check the Chrome window.' 
+            message: 'Bot completed successfully!' 
         });
 
     } catch (error) {
         console.error('❌ Bot error:', error);
-  res.status(500).json({ 
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (e) {
+                console.error('Error closing browser:', e);
+            }
+        }
+        res.status(500).json({ 
             success: false, 
             error: error.message 
-  });
+        });
     }
 });
 
