@@ -63,6 +63,75 @@ app.get('/api/debug', (req, res) => {
     }
 });
 
+// Test JUST browser launch (smallest possible test)
+app.post('/api/test-browser', async (req, res) => {
+    try {
+        console.log('🔍 Testing JUST browser launch...');
+        
+        const browser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        
+        console.log('✅ Browser launched successfully');
+        
+        const page = await browser.newPage();
+        console.log('✅ Page created successfully');
+        
+        await browser.close();
+        console.log('✅ Browser closed successfully');
+        
+        res.json({
+            success: true,
+            message: 'Browser launch test successful',
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Browser test error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            errorType: error.name,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Test browser + simple navigation (step 2)
+app.post('/api/test-navigation', async (req, res) => {
+    try {
+        console.log('🔍 Testing browser + navigation...');
+        
+        const browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+        const page = await browser.newPage();
+        
+        console.log('🌐 Testing navigation to Google...');
+        await page.goto('https://www.google.com', { timeout: 10000 });
+        console.log('✅ Navigation successful');
+        
+        await browser.close();
+        
+        res.json({
+            success: true,
+            message: 'Navigation test successful',
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Navigation test error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Test if we can reach Polaroo at all
 app.get('/api/test-polaroo', async (req, res) => {
     try {
@@ -109,7 +178,11 @@ app.post('/api/extract-data', async (req, res) => {
     }, 15000); // 15 seconds max
     
     try {
-        console.log(`🤖 Starting FAST extraction for ${period}...`);
+        console.log(`🤖 Starting SLOW extraction for ${period}...`);
+        
+        // Add initial delay to prevent instant failures
+        console.log('⏳ Initial delay (3 seconds)...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         // Step 1: Read Book1.xlsx (with error handling)
         console.log('📖 Step 1: Reading Book1.xlsx...');
@@ -121,11 +194,11 @@ app.post('/api/extract-data', async (req, res) => {
             console.log(`✅ Book1.xlsx: ${propertyName} (${totalProperties} total properties)`);
         } catch (bookError) {
             console.error('❌ Book1.xlsx error:', bookError.message);
-            // Use fallback if Book1.xlsx fails
-            propertyName = "Aribau 1º 1ª";
-            totalProperties = 1;
-            console.log(`⚠️ Using fallback property: ${propertyName}`);
+            throw new Error(`Book1.xlsx failed: ${bookError.message}`);
         }
+        
+        console.log('⏳ Delay before Playwright (2 seconds)...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Step 2: Get date range first
         const dateRange = getPeriodDateRange(period);
