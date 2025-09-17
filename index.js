@@ -1,8 +1,7 @@
 const express = require('express');
 const path = require('path');
 const axios = require('axios');
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+const { chromium } = require('playwright');
 const { CohereClient } = require('cohere-ai');
 const XLSX = require('xlsx');
 require('dotenv').config();
@@ -132,14 +131,8 @@ app.post('/api/extract-data', async (req, res) => {
         const dateRange = getPeriodDateRange(period);
         console.log(`📅 Date range: ${dateRange.start} to ${dateRange.end}`);
         
-        // Check if we're on Render free tier (limited resources)
-        if (process.env.NODE_ENV === 'production') {
-            console.log('⚠️ Running on Render free tier - Puppeteer too heavy');
-            throw new Error('Puppeteer not supported on Render free tier. Please run locally with: node local-test.js');
-        }
-        
-        // Step 2: Get complete data from Polaroo (login + search + extract)
-        console.log('🌐 Getting complete data from Polaroo...');
+        // Step 2: Get complete data from Polaroo using Playwright (lighter than Puppeteer)
+        console.log('🌐 Getting complete data from Polaroo with Playwright...');
         let rawData;
         try {
             rawData = await getPolarooDataForProperty(propertyName);
@@ -300,28 +293,23 @@ function getFirstPropertyFromBook1() {
             propertyName: propertyName.toString().trim(),
             totalProperties: data.length
         };
-    } catch (error) {
+      } catch (error) {
         console.error('Error reading Book1.xlsx:', error);
         throw new Error(`Failed to read Book1.xlsx: ${error.message}`);
     }
 }
 
-// Complete Polaroo integration - login, search, extract data
+// Complete Polaroo integration using Playwright (your proven approach)
 async function getPolarooDataForProperty(propertyName) {
-    console.log('🌐 Launching browser for complete Polaroo integration...');
+    console.log('🌐 Launching Playwright browser...');
     
-    const browser = await puppeteer.launch({
-        headless: process.env.NODE_ENV === 'production' ? 'new' : false,
-        executablePath: process.env.NODE_ENV === 'production' 
-            ? await chromium.executablePath() 
-            : undefined,
+    const browser = await chromium.launch({
+        headless: process.env.NODE_ENV === 'production' ? true : false,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--window-size=1280,720',
-            '--single-process'
+            '--disable-gpu'
         ]
     });
     
@@ -329,100 +317,118 @@ async function getPolarooDataForProperty(propertyName) {
     await page.setViewport({ width: 1280, height: 720 });
     
     try {
-        // Step 1: Login to Polaroo
-        console.log('🌐 Going to Polaroo login page...');
-        await page.goto('https://app.polaroo.com/login', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 30000 
-        });
+        // Step 1: Login using your proven approach
+        console.log('🚀 [LOGIN] Starting login process...');
         
-        console.log('📧 Copy-pasting email...');
-        await page.waitForSelector('input[name="email"]', { timeout: 10000 });
-        await page.evaluate((email) => {
-            const emailField = document.querySelector('input[name="email"]');
-            if (emailField) {
-                emailField.value = email;
-                emailField.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }, 'francisco@node-living.com');
+        await page.goto('https://app.polaroo.com/login');
+        await page.waitForTimeout(5000); // WAIT_MS from your code
         
-        console.log('🔒 Copy-pasting password...');
-        await page.waitForSelector('input[name="password"]', { timeout: 10000 });
-        await page.evaluate((password) => {
-            const passwordField = document.querySelector('input[name="password"]');
-            if (passwordField) {
-                passwordField.value = password;
-                passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }, 'Aribau126!');
-        
-        console.log('🖱️ Clicking Sign in button...');
-        await page.evaluate(() => {
-            const buttons = Array.from(document.querySelectorAll('button'));
-            const signInButton = buttons.find(btn => btn.textContent.trim() === 'Sign in');
-            if (signInButton) {
-                signInButton.click();
-            }
-        });
-        
-        console.log('⏳ Waiting for dashboard redirect...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        
-        // Step 2: Go to accounting page
-        console.log('🌐 Going to accounting dashboard...');
-        await page.goto('https://app.polaroo.com/dashboard/accounting', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 30000 
-        });
-        
-        // Step 3: Search for the property
-        console.log(`🔍 Searching for "${propertyName}" in search box...`);
-        
-        // Find and fill the search box (as shown in your screenshot)
-        const searchInput = await page.waitForSelector('input[type="text"], input[placeholder*="search" i], input[name*="search" i]', { timeout: 10000 });
-        
-        // Clear and fill search box
-        await page.evaluate((input, property) => {
-            input.value = '';
-            input.value = property;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        }, searchInput, propertyName);
-        
-        console.log(`✅ Entered "${propertyName}" in search box`);
-        
-        // Wait for table to update
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Step 4: Extract table data
-        console.log('📊 Extracting table data...');
-        const tableData = await page.evaluate((searchedProperty) => {
-            const rows = Array.from(document.querySelectorAll('tbody tr, table tr'));
-            return rows.map((row, index) => {
-                const cells = Array.from(row.querySelectorAll('td'));
-                if (cells.length >= 8) {
-                    return {
-                        rowNumber: index + 1,
-                        asset: searchedProperty, // Use the searched property name
-                        company: cells[2]?.textContent?.trim() || '',
-                        service: cells[4]?.textContent?.trim() || '',
-                        initialDate: cells[5]?.textContent?.trim() || '',
-                        finalDate: cells[6]?.textContent?.trim() || '',
-                        subtotal: cells[7]?.textContent?.trim() || '',
-                        taxes: cells[8]?.textContent?.trim() || '',
-                        total: cells[9]?.textContent?.trim() || ''
-                    };
+        // Check if already logged in
+        const currentUrl = page.url();
+        if (currentUrl.includes('dashboard')) {
+            console.log('✅ [LOGIN] Already logged in, redirected to dashboard');
+        } else {
+            // Fill login form using your approach
+            console.log('📝 [LOGIN] Filling login form...');
+            await page.fill('input[name="email"]', 'francisco@node-living.com');
+            await page.fill('input[name="password"]', 'Aribau126!');
+            
+            // Submit form
+            await page.click('button[type="submit"]');
+            await page.waitForTimeout(5000);
+            
+            // Wait for redirect using your polling approach
+            console.log('⏳ [LOGIN] Waiting for dashboard redirect...');
+            for (let i = 0; i < 20; i++) { // MAX_WAIT_LOOPS from your code
+                const url = page.url();
+                if (url.includes('dashboard')) {
+                    console.log('✅ [LOGIN] Successfully logged in');
+        break;
                 }
-                return null;
-            }).filter(row => row && row.service && !row.service.toLowerCase().includes('service'));
-        }, propertyName);
+                await page.waitForTimeout(500);
+            }
+        }
         
-        console.log(`✅ Extracted ${tableData.length} rows from Polaroo table`);
+        // Step 2: Search for property using your exact approach
+        console.log(`🔍 [SEARCH] Searching for property: ${propertyName}`);
+        
+        await page.goto('https://app.polaroo.com/dashboard/accounting');
+        await page.waitForTimeout(5000);
+        
+        // Look for search input using your locator approach
+        const searchInput = page.locator('input[placeholder*="search"], input[placeholder*="Search"]').first();
+        const searchCount = await searchInput.count();
+        
+        if (searchCount > 0) {
+            await searchInput.fill(propertyName);
+            await page.keyboard.press('Enter');
+            await page.waitForTimeout(5000);
+            console.log(`✅ [SEARCH] Successfully searched for: ${propertyName}`);
+        } else {
+            console.log('⚠️ [SEARCH] No search input found');
+        }
+        
+        // Step 3: Extract table data using your dynamic approach
+        console.log('📊 [TABLE] Extracting invoice table data...');
+        
+        await page.waitForSelector('table, .table, [role="table"]', { timeout: 10000 });
+        
+        const tableData = await page.evaluate(() => {
+            const tables = document.querySelectorAll('table, .table, [role="table"]');
+            const data = [];
+            
+            for (const table of tables) {
+                const rows = table.querySelectorAll('tr');
+                const headers = [];
+                
+                // Get headers from first row
+                if (rows.length > 0) {
+                    const headerRow = rows[0];
+                    const headerCells = headerRow.querySelectorAll('th, td');
+                    for (const cell of headerCells) {
+                        headers.push(cell.textContent.trim());
+                    }
+                }
+                
+                // Extract data from remaining rows
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    const cells = row.querySelectorAll('td, th');
+                    const rowData = {};
+                    
+                    for (let j = 0; j < cells.length && j < headers.length; j++) {
+                        const cellText = cells[j].textContent.trim();
+                        rowData[headers[j]] = cellText;
+                    }
+                    
+                    if (Object.keys(rowData).length > 0) {
+                        data.push(rowData);
+                    }
+                }
+            }
+            
+            return data;
+        });
+        
+        console.log(`✅ [TABLE] Extracted ${tableData.length} invoice records`);
+        
+        // Convert to our expected format
+        const formattedData = tableData.map((row, index) => ({
+            rowNumber: index + 1,
+            asset: propertyName,
+            company: row['Company'] || row['Provider'] || 'Unknown',
+            service: row['Service'] || 'Unknown',
+            initialDate: row['Initial date'] || row['Start Date'] || '',
+            finalDate: row['Final date'] || row['End Date'] || '',
+            subtotal: row['Subtotal'] || row['Sub total'] || '0 €',
+            taxes: row['Taxes'] || '0 €',
+            total: row['Total'] || '0 €'
+        })).filter(row => row.service && row.service !== 'Unknown');
         
         await browser.close();
-        return tableData;
+        return formattedData;
         
-      } catch (error) {
+    } catch (error) {
         await browser.close();
         throw error;
     }
@@ -471,7 +477,7 @@ async function searchPropertyInPolaroo(propertyName, cookies) {
         console.log(`✅ Found ${extractedData.length} rows in accounting table`);
         return extractedData;
 
-  } catch (error) {
+      } catch (error) {
         console.error('❌ Error searching property in Polaroo:', error.message);
         throw new Error(`Failed to search property in Polaroo: ${error.message}`);
     }
