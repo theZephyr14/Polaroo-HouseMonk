@@ -1,0 +1,243 @@
+[
+  {
+    "name": "Aribau 1º 1ª",
+    "overage": 6.810000000000002,
+    "rooms": 1,
+    "selected_bills": [
+      {
+        "#": "",
+        "Asset": "Aribau 1º 1ª",
+        "Upload date": "22/04/2025",
+        "Modified date": "22/05/2025",
+        "Issue date": "17/04/2025",
+        "Payment date": "17/04/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "N_25000875777",
+        "Provider": "Gana Energía",
+        "Company": "GAOLANIA SERVICIOS S.L.",
+        "NIF/CIF": "B-98717457",
+        "Service": "Electricity",
+        "Initial date": "17/03/2025",
+        "Final date": "16/04/2025",
+        "Subtotal": "35,38 €",
+        "Taxes": "7,43 €",
+        "Total": "42,81 €",
+        "serviceType": "electricity",
+        "startMonth": 3,
+        "endMonth": 4,
+        "duration": 29.958333333333332
+      },
+      {
+        "#": "",
+        "Asset": "Aribau 1º 1ª",
+        "Upload date": "20/03/2025",
+        "Modified date": "20/03/2025",
+        "Issue date": "17/03/2025",
+        "Payment date": "17/03/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "N_25000616889",
+        "Provider": "Gana Energía",
+        "Company": "GAOLANIA SERVICIOS S.L.",
+        "NIF/CIF": "B-98717457",
+        "Service": "Electricity",
+        "Initial date": "17/02/2025",
+        "Final date": "16/03/2025",
+        "Subtotal": "45,06 €",
+        "Taxes": "9,46 €",
+        "Total": "54,52 €",
+        "serviceType": "electricity",
+        "startMonth": 2,
+        "endMonth": 3,
+        "duration": 27
+      },
+      {
+        "#": "",
+        "Asset": "Aribau 1º 1ª",
+        "Upload date": "12/05/2025",
+        "Modified date": "12/05/2025",
+        "Issue date": "06/05/2025",
+        "Payment date": "06/05/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "20253094361",
+        "Provider": "Aigües de Barcelona",
+        "Company": "Aigües de Barcelona, Empresa Metropolitana de Gestió del Cicle Integral de Aigua, S.A.",
+        "NIF/CIF": "A66098435",
+        "Service": "Water",
+        "Initial date": "24/02/2025",
+        "Final date": "24/04/2025",
+        "Subtotal": "49,41 €",
+        "Taxes": "2,88 €",
+        "Total": "52,29 €",
+        "serviceType": "water",
+        "startMonth": 2,
+        "endMonth": 4,
+        "duration": 58.958333333333336
+      }
+    ],
+    "monthly_overuse": [
+      {
+        "month": 2,
+        "cost": 54.52,
+        "overuse": 4.520000000000003,
+        "bill_type": "Electricity"
+      },
+      {
+        "month": 2,
+        "cost": 52.29,
+        "overuse": 2.289999999999999,
+        "bill_type": "Water"
+      }
+    ]
+  },
+  {
+    "name": "Aribau 2º 1º",
+    "overage": 6.799999999999997,
+    "rooms": 1,
+    "selected_bills": [
+      {
+        "#": "",
+        "Asset": "Aribau 2º 1º",
+        "Upload date": "23/04/2025",
+        "Modified date": "22/05/2025",
+        "Issue date": "23/04/2025",
+        "Payment date": "23/04/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "N_25000926584",
+        "Provider": "Gana Energía",
+        "Company": "GAOLANIA SERVICIOS S.L.",
+        "NIF/CIF": "B-98717457",
+        "Service": "Electricity",
+        "Initial date": "23/03/2025",
+        "Final date": "22/04/2025",
+        "Subtotal": "46,94 €",
+        "Taxes": "9,86 €",
+        "Total": "56,80 €",
+        "serviceType": "electricity",
+        "startMonth": 3,
+        "endMonth": 4,
+        "duration": 29.958333333333332
+      },
+      {
+        "#": "",
+        "Asset": "Aribau 2º 1º",
+        "Upload date": "23/03/2025",
+        "Modified date": "23/03/2025",
+        "Issue date": "23/03/2025",
+        "Payment date": "23/03/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "N_25000665119",
+        "Provider": "Gana Energía",
+        "Company": "GAOLANIA SERVICIOS S.L.",
+        "NIF/CIF": "B-98717457",
+        "Service": "Electricity",
+        "Initial date": "23/02/2025",
+        "Final date": "22/03/2025",
+        "Subtotal": "36,49 €",
+        "Taxes": "7,66 €",
+        "Total": "44,15 €",
+        "serviceType": "electricity",
+        "startMonth": 2,
+        "endMonth": 3,
+        "duration": 27
+      }
+    ],
+    "monthly_overuse": [
+      {
+        "month": 3,
+        "cost": 56.8,
+        "overuse": 6.799999999999997,
+        "bill_type": "Electricity"
+      }
+    ]
+  },
+  {
+    "name": "Aribau 2º 3ª",
+    "overage": 15.770000000000003,
+    "rooms": 1,
+    "selected_bills": [
+      {
+        "#": "",
+        "Asset": "Aribau 2º 3ª",
+        "Upload date": "23/04/2025",
+        "Modified date": "22/05/2025",
+        "Issue date": "23/04/2025",
+        "Payment date": "23/04/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "N_25000926528",
+        "Provider": "Gana Energía",
+        "Company": "GAOLANIA SERVICIOS S.L.",
+        "NIF/CIF": "B-98717457",
+        "Service": "Electricity",
+        "Initial date": "23/03/2025",
+        "Final date": "22/04/2025",
+        "Subtotal": "49,20 €",
+        "Taxes": "10,33 €",
+        "Total": "59,53 €",
+        "serviceType": "electricity",
+        "startMonth": 3,
+        "endMonth": 4,
+        "duration": 29.958333333333332
+      },
+      {
+        "#": "",
+        "Asset": "Aribau 2º 3ª",
+        "Upload date": "23/03/2025",
+        "Modified date": "23/03/2025",
+        "Issue date": "23/03/2025",
+        "Payment date": "23/03/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "N_25000665060",
+        "Provider": "Gana Energía",
+        "Company": "GAOLANIA SERVICIOS S.L.",
+        "NIF/CIF": "B-98717457",
+        "Service": "Electricity",
+        "Initial date": "23/02/2025",
+        "Final date": "22/03/2025",
+        "Subtotal": "46,48 €",
+        "Taxes": "9,76 €",
+        "Total": "56,24 €",
+        "serviceType": "electricity",
+        "startMonth": 2,
+        "endMonth": 3,
+        "duration": 27
+      },
+      {
+        "#": "",
+        "Asset": "Aribau 2º 3ª",
+        "Upload date": "09/05/2025",
+        "Modified date": "09/05/2025",
+        "Issue date": "06/05/2025",
+        "Payment date": "06/05/2025",
+        "Account": "Alquileres Bcn Homes, S.L.",
+        "Invoice reference": "20253094365",
+        "Provider": "Aigües de Barcelona",
+        "Company": "Aigües de Barcelona, Empresa Metropolitana de Gestió del Cicle Integral de Aigua, S.A.",
+        "NIF/CIF": "A66098435",
+        "Service": "Water",
+        "Initial date": "24/02/2025",
+        "Final date": "24/04/2025",
+        "Subtotal": "44,06 €",
+        "Taxes": "2,48 €",
+        "Total": "46,54 €",
+        "serviceType": "water",
+        "startMonth": 2,
+        "endMonth": 4,
+        "duration": 58.958333333333336
+      }
+    ],
+    "monthly_overuse": [
+      {
+        "month": 3,
+        "cost": 59.53,
+        "overuse": 9.530000000000001,
+        "bill_type": "Electricity"
+      },
+      {
+        "month": 2,
+        "cost": 56.24,
+        "overuse": 6.240000000000002,
+        "bill_type": "Electricity"
+      }
+    ]
+  }
+]
