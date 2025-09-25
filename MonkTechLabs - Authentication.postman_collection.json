@@ -1,0 +1,97 @@
+{
+	"info": {
+		"_postman_id": "beb37825-616c-41cb-994a-9bd6d09981bc",
+		"name": "MonkTechLabs - Authentication",
+		"description": "APIs to generate access tokens for a user\n\nCreate a new user and name it in a way that you can identify that the invoices were created using this user. Ex. Integration user.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "48535654",
+		"_collection_link": "https://universal-crescent-163296.postman.co/workspace/cfc0d048-b09e-4f4f-b31f-7661765cbf96/collection/48346806-beb37825-616c-41cb-994a-9bd6d09981bc?action=share&source=collection_link&creator=48535654"
+	},
+	"item": [
+		{
+			"name": "Create user access token with client access token",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json, text/plain, */*"
+					},
+					{
+						"key": "authorization",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY2ZjNkYjcyNTZiYjFkMjhlZTQwOWE0YyIsIm5hbWUiOiJ0ZXN0IiwidXVpZCI6ImJiZmVkN2MwLTdiMjItMTFlZi1iNzg2LTYzY2VmYjMxNWI5YiIsIm9yZ2FuaXphdGlvbiI6IjY2ZTI3MzM3MjhkNmQ1MTAwZjlkOWIwMiIsInVpZCI6IjY2ZTI3MzM3MjhkNmQ1MTAwZjlkOWIwNSIsImlhdCI6MTcyNzI1Nzc2MSwiZXhwIjoxNzM1MDMzNzYxfQ.BkEb_pXE6q2GZBofluLP5O43U1kYYzkHRfrDWsSsOlk"
+					},
+					{
+						"key": "x-api-key",
+						"value": "bbfed7c0-7b22-11ef-b786-63cefb315b9b"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"user\": \"66e2733728d6d5100f9d9b05\"\n}"
+				},
+				"url": {
+					"raw": "https://dashboard.thehousemonk.com/integration/glynk/access-token",
+					"protocol": "https",
+					"host": [
+						"dashboard",
+						"thehousemonk",
+						"com"
+					],
+					"path": [
+						"integration",
+						"glynk",
+						"access-token"
+					]
+				},
+				"description": "# Access Token Request\n\nThis endpoint is used to obtain an access token for a particular user along with other user details. One needs to pass \"x-api-key\" and \"authorization\" in the headers as \"clientId\" and master \"accessToken\" which is shared with you over email It facilitates the authentication process for other APIs, for ex, creation of invoices, the access token received in response should be passed in authorization header while creating an invoice or performing any other operations. This will be used to identify which user has created the invoice.\n\n## Request\n\n### Method\n\n`POST`\n\n### URL\n\n`https://dashboard.thehousemonk.com/integration/glynk/access-token`\n\n### Request Body\n\nThe request body must be in JSON format and should include the following parameter:\n\n- **user** (string): A unique identifier for the user, which is required for authentication.\n    \n\n### Example Request\n\n``` json\n{\n  \"user\": \"682cb93d59...\"\n}\n\n ```\n\n## Response\n\n### Status Code\n\n- `200 OK`: Indicates that the request was successful.\n    \n\n### Content-Type\n\n- `application/json`\n    \n\n### Response Structure\n\nThe response will be a JSON array containing an object with the following properties:\n\n- **_id**: Identifier for the user.\n    \n- **residentsAppDevice**: Contains the source of the device used by the user.\n    \n- **xero**: Status related to Xero integration.\n    \n- **sage**: Status related to Sage integration.\n    \n- **netsuite**: Status related to NetSuite integration.\n    \n- **quickbooks**: Status related to QuickBooks integration.\n    \n- **inventoryhive**: Status related to InventoryHive integration.\n    \n- **salto**: Access information for Salto integration.\n    \n- **saltoV2**: Detailed status, access, roles, devices, and sites for Salto V2 integration.\n    \n- **doorFlow**: Information about door flow settings.\n    \n- **paperCut**: Status of PaperCut integration.\n    \n- **location**: User's location details including type and coordinates.\n    \n- **verification**: Verification status including if the user is verified and onboarding is completed.\n    \n- **consent**: User's consent for marketing emails.\n    \n- **isCRMupdated**: Indicates if the CRM has been updated.\n    \n- **projects**: List of projects associated with the user.\n    \n- **highRisk**: Indicates if the user is flagged as high risk.\n    \n- **kycStatus**: Status of Know Your Customer (KYC) process.\n    \n- **isKycDocumentSubmitted**: Indicates if KYC documents have been submitted.\n    \n- **isTeamMember**: Indicates if the user is a team member.\n    \n- **isDepositPaid**: Indicates if a deposit has been paid.\n    \n- **policeVerification**: Status of police verification.\n    \n- **isKycVerified**: Indicates if KYC has been verified.\n    \n- **isInvoiceApprover**: Indicates if the user can approve invoices.\n    \n- **isCreditNoteApprover**: Indicates if the user can approve credit notes.\n    \n- **types**: List of types associated with the user.\n    \n- **grexterTypes**: List of Grexter types associated with the user.\n    \n- **alternateEmails**: List of alternate email addresses.\n    \n- **dobVisibility**: Visibility status of the user's date of birth.\n    \n- **status**: Current status of the user.\n    \n- **maritalStatus**: User's marital status.\n    \n- **hobbies**: List of user hobbies.\n    \n- **files**: List of files associated with the user.\n    \n- **failedLoginAttempts**: Number of failed login attempts.\n    \n- **isAccountLocked**: Indicates if the account is locked.\n    \n- **isOrganization**: Indicates if the user is an organization.\n    \n- **isOwnerAssociationMember**: Indicates if the user is a member of the owner association.\n    \n- **isDataDummy**: Indicates if the data is dummy data.\n    \n- **systemDefaultData**: Indicates if the data is system default.\n    \n- **blockedUsers**: List of blocked users.\n    \n- **isChatIntegrated**: Indicates if chat integration is enabled.\n    \n- **enableNewNavigation**: Indicates if new navigation is enabled.\n    \n- **disableProductRevampBanner**: Indicates if the product revamp banner is disabled.\n    \n- **isGuarantor**: Indicates if the user is a guarantor.\n    \n- **firstName**: User's first name.\n    \n- **lastName**: User's last name.\n    \n- **phoneNumber**: User's phone number.\n    \n- **countryCode**: User's country code.\n    \n- **isProcessCompleted**: Indicates if the process is completed.\n    \n- **alternateContacts**: List of alternate contacts.\n    \n- **email**: User's email address.\n    \n- **customFields**: List of custom fields associated with the user.\n    \n- **businessApp**: List of business applications associated with the user.\n    \n- **xeroDetails**: Details related to Xero.\n    \n- **bankDetails**: User's bank details.\n    \n- **role**: User's role.\n    \n- **zohobooks**: List of Zoho Books associated with the user.\n    \n- **roleName**: Name of the user's role.\n    \n- **roleType**: Type of the user's role.\n    \n- **organization**: Organization details.\n    \n- **createdBy**: User who created the record.\n    \n- **updatedBy**: User who last updated the record.\n    \n- **uid**: Unique identifier for the user.\n    \n- **lastUpdatedAtMTL**: Timestamp of the last update.\n    \n- **passwordHistory**: History of passwords used by the user.\n    \n- **xeroHistory**: History of Xero integrations.\n    \n- **paymentGateways**: List of payment gateways associated with the user.\n    \n- **calendar**: User's calendar details.\n    \n- **reportedUsers**: List of users reported by this user.\n    \n- **checkinVerification**: Check-in verification details.\n    \n- **createdAt**: Timestamp of when the record was created.\n    \n- **updatedAt**: Timestamp of when the record was last updated.\n    \n- **__v**: Version key.\n    \n- **formattedPhoneNumber**: Formatted version of the user's phone number.\n    \n- **fullName**: User's full name.\n    \n- **homes**: List of homes associated with the user.\n    \n- **occupancyStatus**: User's occupancy status.\n    \n- **checkin**: Check-in details including stage and accepted terms and conditions.\n    \n- **accessToken**: The access token generated for the user.\n    \n\nThis response provides detailed insights into the user's account status and various integrations, enabling seamless interaction with the HouseMonk platform."
+			},
+			"response": []
+		},
+		{
+			"name": "Create/refresh CLIENT access token",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json, text/plain, */*"
+					},
+					{
+						"key": "authorization",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0",
+						"disabled": true
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"clientId\": \"bbfed7c0-7b22-11ef-b786-63cefb315b9b\",\n    \"clientSecret\": \"5e88c469-771c-48ab-829f-2c09aa30e6cc\"\n}"
+				},
+				"url": {
+					"raw": "https://dashboard.thehousemonk.com/api/client/refresh-token",
+					"protocol": "https",
+					"host": [
+						"dashboard",
+						"thehousemonk",
+						"com"
+					],
+					"path": [
+						"api",
+						"client",
+						"refresh-token"
+					]
+				},
+				"description": "## Refresh Token API\n\nThis endpoint allows clients to refresh their master access tokens using their client credentials.\n\n### Request\n\n- **Method**: POST\n    \n- **Endpoint**: `https://dashboard.thehousemonk.com/api/client/refresh-token`\n    \n\n#### Request Body\n\nThe request body must be sent in JSON format and should include the following parameters:\n\n- `clientId` (string): The unique identifier for the client.\n    \n- `clientSecret` (string): The secret key associated with the client.\n    \n\n**Example Request Body**:\n\n``` json\n{\n  \"clientId\": \"your_client_id\",\n  \"clientSecret\": \"your_client_secret\"\n}\n\n ```\n\n### Response\n\nOn a successful request, the server will respond with a status code of `200` and a JSON object containing the following fields:\n\n- `token` (string): The new authentication token.\n    \n- `clientId` (string): The client identifier provided in the request.\n    \n- `clientSecret` (string): The client secret provided in the request.\n    \n\n**Example Response**:\n\n``` json\n{\n  \"token\": \"new_auth_token\",\n  \"clientId\": \"your_client_id\",\n  \"clientSecret\": \"your_client_secret\"\n}\n\n ```\n\n### Notes\n\n- Ensure that the `clientId` and `clientSecret` are correctly provided to avoid authentication errors.\n    \n- The `token` returned in the response should be used for subsequent authenticated requests."
+			},
+			"response": []
+		}
+	]
+}

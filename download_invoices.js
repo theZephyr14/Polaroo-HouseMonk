@@ -397,9 +397,16 @@ async function downloadInvoicesForOverageProperties(overageProperties) {
     }
     
     // Launch browser
-    const browser = await chromium.launch({ 
-        headless: false,  // VISIBLE WINDOW
-        slowMo: 1000      // Slow down so you can see actions
+  const browser = await chromium.launch({
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--single-process',
+            '--no-zygote'
+        ]
     });
     const context = await browser.newContext({
         acceptDownloads: true // Enable downloads

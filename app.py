@@ -211,11 +211,11 @@ if st.session_state.results:
                             "Total Overuse": f"{total_overuse:.2f} €",
                             "Status": "🚨 Over Limit"
                         })
-                        
-                        properties_with_overages.append({
-                            "name": row["Property"],
+                            
+                            properties_with_overages.append({
+                                "name": row["Property"],
                             "overage": total_overuse,
-                            "rooms": row["Rooms"],
+                                "rooms": row["Rooms"],
                             "selected_bills": selected_bills,
                             "monthly_overuse": monthly_overuse
                         })
@@ -254,7 +254,7 @@ if st.session_state.results:
                 st.markdown("##### 🚨 Properties Exceeding Allowance")
                 overages_df = pd.DataFrame(overages_only)
                 st.dataframe(overages_df, width=800)
-
+                
                 # Single action under overuse: Download invoices (local only)
                 if st.button("📥 Download invoices", use_container_width=True, key="download_invoices_overuse_tab"):
                     with st.spinner("📥 Downloading invoices..."):

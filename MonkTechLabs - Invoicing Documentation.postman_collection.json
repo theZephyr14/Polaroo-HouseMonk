@@ -1,0 +1,548 @@
+{
+	"info": {
+		"_postman_id": "82416897-36ae-401b-98ae-b29ac79d8655",
+		"name": "MonkTechLabs - Invoicing Documentation",
+		"description": "**Step by step procedure for creating invoices using MTL API’s**\n\n**Presented in this collection are the sequential steps for generating invoices within the MTL system, accompanied by sample data and request/response examples. These steps follow a chronological order, as the successful creation of an invoice relies on following them in the specified sequence.**\n\n# **Terms Used In This Documentation**\n\n- **Listing - A unit in a property**\n    \n- **Home - Contract created for a user agains a unit**\n    \n- **Project - A property, in which several units are present**\n    \n- **Tenant - The occupant of a unit**\n    \n- **Product and service - A product or service offered to tenants by the organization, which is billed and upon which invoices are created**\n    \n\n**Fields in Invoice that should be send in YYYY-MM-DD to the api and will be received in the same format.**\n\n- invoiceDate\n    \n- lastFinePaidDate\n    \n- dueDate\n    \n- paidDate\n    \n- credits (array):\n    \n    - paidDate\n        \n- payments (array):\n    \n    - paidDate\n        \n- refunds (array):\n    \n    - paidDate\n        \n- itemDetails (array):\n    \n    - recurringFor (object):\n        \n        - startInterval\n            \n        - endInterval\n            \n- fineBreakUps:\n    \n    - level1 (object):\n        \n        - triggeredOn\n            \n    - level2 (array):\n        \n        - triggeredOn",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "48535654",
+		"_collection_link": "https://universal-crescent-163296.postman.co/workspace/cfc0d048-b09e-4f4f-b31f-7661765cbf96/collection/48346806-82416897-36ae-401b-98ae-b29ac79d8655?action=share&source=collection_link&creator=48535654"
+	},
+	"item": [
+		{
+			"name": "Create Invoice",
+			"item": [
+				{
+					"name": "Fetch the list of homes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/home",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"home"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of results expected in the response\naccepted values - 10, 15, 20, 30, 60\ndefault - 30\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "pagination - specifies the number of results to be skipped\ndefault - 1\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "q",
+									"value": "ci",
+									"description": "query\nrequired - false\nquery string for searching homes",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "active",
+									"description": "status of the project\naccepted values - active, inactive\ndefault - active\nrequired - false",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This API endpoint is a GET request to retrieve home data from the dashboard. The request includes query parameters such as limit, page, q, and status to filter the results. The response returns a status code of 200 along with a JSON object containing various details about the home, including count and rows of data related to tenancy terms, move-out details, tenant information, location, verification status, and more."
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch products and services",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/product-and-service?projects=654399ed01def87096915750",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"product-and-service"
+							],
+							"query": [
+								{
+									"key": "projects",
+									"value": "654399ed01def87096915750",
+									"description": "object id of the project for which the products and services are being fetched\nrequired - true"
+								},
+								{
+									"key": "limit",
+									"value": "9007199254740991",
+									"description": "No. of results expected in the response\ndefault & max - 9007199254740991",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint makes an HTTP GET request to retrieve product and service data from the dashboard. The request includes query parameters such as appliedIncomeAccount, limit, and projects. The appliedIncomeAccount parameter is set to true, the limit is set to a very large number, and the projects parameter is set to a object id of the project.\n\nThe request does not include a request body.\n\n### Response\n\nThe endpoint returns a JSON response with a status code of 200. The response body includes a count and an array of rows. Each row in the array contains information about a product or service, including status, type, unit, default status, recurring status, quantity, files, organizations, data dummy status, system default data status, projects, ID, name, applied income and expense account status, notes, category, creator, updater, UID, creation and update timestamps, and version."
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch tax codes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "accept-language",
+								"value": "en"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/tax?projects=655f41de004adb014ac00953",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"tax"
+							],
+							"query": [
+								{
+									"key": "projects",
+									"value": "655f41de004adb014ac00953",
+									"description": "object id of the project"
+								}
+							]
+						},
+						"description": "# Get Tax Information\n\nThis endpoint retrieves tax information based on the specified project ID.\n\n## Request\n\n### Endpoint\n\n`GET` [https://dashboard.thehousemonk.com/api/tax](https://dashboard.thehousemonk.com/api/tax)\n\n### Query Parameters\n\n- `projects`: The ID of the project for which tax information is requested.\n    \n\n## Response\n\n- Status: 200 OK\n- `count`: The number of tax records returned.\n- `rows`: An array of tax records with the following properties:\n    - `taxCode`: The tax code.\n    - `isDataDummy`: Indicates if the data is dummy.\n    - `projects`: An array of project IDs associated with the tax.\n    - `_id`: The tax record ID.\n    - `name`: The name of the tax.\n    - `taxRate`: The tax rate.\n    - `taxName`: The name of the tax.\n    - `active`: Indicates if the tax is active.\n    - `subTaxes`: An array of sub-taxes.\n    - `organization`: The organization associated with the tax.\n    - `createdBy`: The user who created the tax record.\n    - `updatedBy`: The user who last updated the tax record.\n    - `uid`: The unique identifier of the tax record.\n    - `createdAt`: The date and time when the tax record was created.\n    - `updatedAt`: The date and time when the tax record was last updated.\n    - `__v`: Version control."
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch tenants",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/user?projects=655f41de004adb014ac00953",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"user"
+							],
+							"query": [
+								{
+									"key": "projects",
+									"value": "655f41de004adb014ac00953",
+									"description": "object id of the project to filter tenants based on the same\nrequired - false"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "limit\naccepted values - 5, 10, 15, 20, 30, 60\ndefault - 10\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "pagination\ndefault - 1\nrequired - true",
+									"disabled": true
+								},
+								{
+									"key": "q",
+									"value": "",
+									"description": "query\nidentifier to filter out the tenant",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "active",
+									"description": "status of the tenant\naccepted values - active, inactive\ndefault - active",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint makes an HTTP GET request to retrieve user data from the dashboard. The request includes query parameters for limit, page, projects, q, and status. The last call to this request did not include a request body.\n\n### Request\n\n- Method: GET\n- URL: `https://dashboard.thehousemonk.com/api/user`\n- Query Parameters:\n    - limit (integer): The number of items to retrieve.\n    - page (integer): The page number for paginated results.\n    - projects (string): The project ID for filtering.\n    - q (string): The search query.\n    - status (string): The status of the user.\n\n### Response\n\nThe response to the request has a status code of 200 and includes a JSON object with the following fields:\n\n- count (integer): The total count of user records.\n- rows (array): An array of user objects, each containing various user details such as name, contact information, role, and app access status.\n    \n\nThe user objects include fields such as sage, netsuite, projects, highRisk, isInvoiceApprover, isCreditNoteApprover, types, grexterTypes, status, files, firstName, lastName, phoneNumber, countryCode, email, uid, calendar, createdAt, profilePicture, tenant, fullName, hasResidentsApp, hasBusinessApp, xeroStatus, role, roleType, and roleName."
+					},
+					"response": []
+				},
+				{
+					"name": "Create invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json;charset=UTF-8"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"users\": [\n        \"654399ed01def8709691581b\"\n    ],\n    \"type\": \"Invoice\",\n    \"transactionBelongsTo\": \"Home\",\n    \"home\": \"654399ed01def8709691574b\",\n    \"project\": \"654399ed01def87096915750\",\n    \"listing\": \"654399ed01def87096915867\",\n    \"source\": \"api_external\",\n    \"status\":\"draft\",\n    \"dueDate\": \"2023-01-08\",\n    \"invoiceDate\": \"2023-01-08\",\n    \"taxable\": true,\n    \"totalAmount\": 280.8,\n    \"openingBalance\": 280.8,\n    \"itemDetails\": [\n        {\n            \"amount\": 260,\n            \"taxable\": true,\n            \"taxAmount\": 20.8,\n            \"netAmount\": 280.8,\n            \"description\": \"Rent (01-Jan-2023 to 31-Jan-2023)\",\n            \"quantity\": 1,\n            \"billedAt\": \"none\",\n            \"addConvenienceFee\": false,\n            \"convenienceFee\": 0,\n            \"convenienceFeeType\": \"fixed\",\n            \"recurringFor\": {\n                \"pattern\": \"monthly\",\n                \"startInterval\": \"2023-01-01\",\n                \"endInterval\": \"2023-01-31\"\n            },\n            \"product\": \"654399ec01def870969156ad\",\n            \"rate\": 260,\n            \"unit\": \"unit\",\n            \"taxCode\": \"654bd2b6e84d136764a5c824\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/transaction",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"transaction"
+							]
+						},
+						"description": "### Create Transaction\n\nThis endpoint allows you to create a new transaction in the system.\n\n#### Request Body\n\n- `users` (array of strings): The users involved in the transaction.\n- `type` (string): The type of the transaction; Accepted values - \"Invoice\", \"Bill\", \"Expense\", \"CreditNote\"; default - \"Invoice\"\n    \n- `transactionBelongsTo` (string): The transaction belongs to a specific entity; Accepted values - \"User\", \"Home\", \"Project\"\n    \n- `home` (string): The home associated with the transaction.\n- `status` (string): Status of the invoice; Accepted values - \"draft\", \"rejected\", \"due\", \"paid\", \"partial\", \"deleted\"; default - \"draft\"\n    \n- `listing` (string): The listing associated with the transaction.\n- `source` (string): The source of the transaction.\n- `dueDate` (string): The due date of the transaction.\n- `invoiceDate` (string): The date of the invoice.\n- `taxable` (boolean): Indicates if the transaction is taxable.\n- `status` (string): The status of the transaction.\n- `totalAmount` (number): The total amount of the transaction.\n- `openingBalance` (number): The opening balance for the transaction.\n- `itemDetails` (array): Details of the items involved in the transaction.\n    - `amount` (number): The amount of the item.\n    - `taxable` (boolean): Indicates if the item is taxable.\n    - `taxAmount` (number): The tax amount for the item.\n    - `netAmount` (number): The net amount of the item.\n    - `description` (string): The description of the item.\n    - `quantity` (number): The quantity of the item.\n    - `billedAt` (string): The billing date of the item.\n    - `addConvenienceFee` (boolean): Indicates if a convenience fee is added.\n    - `convenienceFee` (number): The convenience fee amount.\n    - `convenienceFeeType` (string): The type of convenience fee.\n    - `recurringFor` (object): Details of recurring payments.\n        - `pattern` (string): The recurring pattern.\n        - `startInterval` (string): The start interval for recurring payments.\n        - `endInterval` (string): The end interval for recurring payments.\n    - `product` (string): The product related to the item.\n    - `rate` (number): The rate of the item.\n    - `unit` (string): The unit of the item.\n    - `taxCode` (string): The tax code for the item.\n- `addConvenienceFee` (boolean): Indicates if a convenience fee is added.\n- `convenienceFeeType` (string): The type of convenience fee.\n- `files` (array): The files related to the transaction.\n- `notes` (string): Additional notes for the transaction.\n    \n\n#### Response\n\n- `discount` (object): Details about any discount applied.\n- `fineBreakUps` (object): Breakdown of fine details.\n- `deliveryInfo` (object): Information about the delivery of the transaction.\n- `sage` (object): Details related to Sage.\n- `netsuite` (object): Details related to Netsuite.\n- `invoiceId` (string): The ID of the invoice.\n- `taxable` (boolean): Indicates if the transaction is taxable.\n- `addConvenienceFee` (boolean): Indicates if a convenience fee is added.\n- `applicableFineAmount` (number): The applicable fine amount.\n- `source` (string): The source of the transaction.\n- `homes` (array): The homes associated with the transaction.\n- `users` (array): The users involved in the transaction.\n- `files` (array): The files related to the transaction.\n- `organizations` (array): The organizations involved in the transaction.\n- `isDataDummy` (boolean): Indicates if the data is dummy.\n- `listings` (array): The listings associated with the transaction.\n- `isCorporateInvoice` (boolean): Indicates if the invoice is corporate.\n- `isConsolidated` (boolean): Indicates if the transaction is consolidated.\n- `_id` (string): The ID of the transaction.\n- `type` (string): The type of the transaction.\n- `status` (string): The status of the transaction.\n- `invoiceDate` (string): The date of the invoice.\n- `totalAmount` (number): The total amount of the transaction.\n- `openingBalance` (number): The opening balance for the transaction.\n- `referenceNumber` (string): The reference number of the transaction.\n- `itemDetails` (array): Details of the items involved in the transaction.\n    - `taxable` (boolean): Indicates if the item is taxable.\n    - `convenienceFeeType` (string): The type of convenience fee.\n    - `billedAt` (string): The billing date of the item.\n    - `unit` (string): The unit of the item.\n    - `_id` (string): The ID of the item.\n    - `amount` (number): The amount of the item.\n    - `taxAmount` (number): The tax amount for the item.\n    - `netAmount` (number): The net amount of the item.\n    - `description` (string): The description of the item.\n    - `quantity` (number): The quantity of the item.\n    - `convenienceFee` (number): The convenience fee amount.\n    - `recurringFor` (object): Details of recurring payments.\n        - `pattern` (string): The recurring pattern.\n        - `startInterval` (string): The start interval for recurring payments.\n        - `endInterval` (string): The end interval for recurring payments.\n    - `product` (string): The product related to the item.\n    - `rate` (number): The rate of the item.\n    - `taxCode` (string): The tax code for the item.\n- `dueDate` (string): The due date of the transaction.\n- `notes` (string): Additional notes for the transaction.\n- `project` (string): The project related to the transaction.\n- `home` (string): The home associated with the transaction.\n- `account` (object): Details of the account.\n- `transactionBelongsTo` (string): The entity to which the transaction belongs."
+					},
+					"response": []
+				}
+			],
+			"description": "# **Steps Involved In Creating An Invoice**"
+		},
+		{
+			"name": "Search/View Invoices",
+			"item": [
+				{
+					"name": "Search for/view all invoices",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "accept-language",
+								"value": "en"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/transaction",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"transaction"
+							],
+							"query": [
+								{
+									"key": "accountBelongsTo",
+									"value": "User",
+									"description": "Fetches the invoices of the specified entity\naccepted values - User, Listing, Project, ReferenceNumber\ndefault - User\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "accountBelongsToRefId",
+									"value": "640f1f0642fedc38f6aa1b60",
+									"description": "id of the entity ie of User, Project, etc\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "createdAtEnd",
+									"value": "2023-11-29",
+									"description": "invoice created before\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "createdAtStart",
+									"value": "2023-10-31",
+									"description": "invoice created after\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "dueDateEnd",
+									"value": "2023-11-29",
+									"description": "invoice due before\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "dueDateStart",
+									"value": "2023-10-31",
+									"description": "invoice due after\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "invoiceDateEnd",
+									"value": "2023-11-29",
+									"description": "invoice dated before\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "invoiceDateStart",
+									"value": "2023-10-31",
+									"description": "invoice dated after\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "limit\naccepted values - 5, 10, 15, 20, 30, 60\ndefault - 30\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "pagination\ndefault - 1\nrequired - true",
+									"disabled": true
+								},
+								{
+									"key": "productAndServices",
+									"value": "61ee8f3e71888b14838f0a37",
+									"description": "id of the product/service, eg rent\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "sort",
+									"value": "-createdAt",
+									"description": "sort criteria\naccepted values - totalAmount, createdAt, paidDate, dueDate, invoiceDate\ndefault - -createdAt",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "due",
+									"description": "status of the invoice\naccepted values - draft, rejected, due, paid, partial\nrequired - false",
+									"disabled": true
+								},
+								{
+									"key": "type",
+									"value": "Invoice",
+									"description": "type of transaction\naccepted values - Invoice, Bill, Expense\nrequired - false\ndefault - invoice",
+									"disabled": true
+								},
+								{
+									"key": "home",
+									"value": "65b7958c81807917a24bd60f",
+									"description": "id of the home/contract for which the invoice is raised\nrequired - false\ndefault - none",
+									"disabled": true
+								},
+								{
+									"key": "users",
+									"value": "659e5f9240129e1f80c47e01",
+									"description": "id of the users for which the invoice is raised\nrequired - false\ndefault - none",
+									"disabled": true
+								},
+								{
+									"key": "listing",
+									"value": "65b7958c81807917a24bd60c",
+									"description": "id of the listing for which the invoice is raised\nrequired - false\ndefault - none",
+									"disabled": true
+								},
+								{
+									"key": "project",
+									"value": "656050831159e61744264173",
+									"description": "id of the project for which the invoice is raised\nrequired - false\ndefault - none",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint makes an HTTP GET request to retrieve transaction details based on specified filters such as account ownership, creation date, due date, invoice date, product and services, sorting, status, type, limit, and page number. The request should be sent to [https://dashboard.thehousemonk.com/api/transaction](https://dashboard.thehousemonk.com/api/transaction). The response will include the count of transactions, total due amount, total amount, total overdue amount, total paid amount, and an array of transaction details including project, home, listing, reference number, dates, type, user details, item details, total amount, opening balance, status, invoice ID, discounts, and various statuses for integrations with external systems."
+					},
+					"response": []
+				},
+				{
+					"name": "View details of an invoice",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/transaction/65605e94927b3517c4a2f6dd",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"65605e94927b3517c4a2f6dd"
+							],
+							"query": [
+								{
+									"key": "populate",
+									"value": "creditNotes.transaction,payables.transaction,approvals.approvedBy,approvals.approvedBy,refunds.payment,payments.payment",
+									"description": "populates the mentioned entities, associated with this invoice\nrequired - false",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This API endpoint makes an HTTP GET request to retrieve transaction details with the specified ID. The request includes a query parameter 'populate' to populate specific fields from related transactions, payables, approvals, refunds, and payments. The request does not include a request body.\n\nThe response returns a status code of 200 along with detailed transaction information. This includes the transaction ID, creation and update timestamps, user details, invoice details, payment details, credit notes, approvals, and other related information.\n\nThe user can add documentation to describe the purpose of the endpoint, the usage of the 'populate' query parameter, and the structure of the response data."
+					},
+					"response": []
+				}
+			],
+			"description": "api to search for all the invoices"
+		},
+		{
+			"name": "Update Invoices",
+			"item": [
+				{
+					"name": "Update an invoice",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json;charset=UTF-8"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"_id\": \"65648cf1c07f42371a3cdb3e\",\n    \"invoiceDate\": \"2023-11-27\",\n    \"type\": \"Invoice\",\n    \"status\": \"due\",\n    \"totalAmount\": 12000,\n    \"openingBalance\": 12000,\n    \"taxable\": false,\n    \"itemDetails\": [\n        {\n            \"recurringFor\": {\n                \"pattern\": \"monthly\",\n                \"startInterval\": \"2023-11-24\",\n                \"endInterval\": \"2023-11-30\",\n                \"prefix\": 11,\n                \"suffix\": 2023\n            },\n            \"taxable\": false,\n            \"convenienceFeeType\": \"none\",\n            \"billedAt\": \"rentFromTenant\",\n            \"unit\": \"unit\",\n            \"_id\": \"65648cf1c07f42371a3cdb3f\",\n            \"rate\": 12000,\n            \"amount\": 12000,\n            \"convenienceFee\": 0,\n            \"product\": \"61ee8f3e71888b14838f0a37\",\n            \"quantity\": 1,\n            \"netAmount\": 12000,\n            \"description\": \"Rent (24-11-2023 to 30-11-2023) A 1 102\",\n            \"addConvenienceFee\": false,\n            \"taxAmount\": 0\n        }\n    ],\n    \"source\": \"api_external\",\n    \"dueDate\": \"2023-11-27\",\n    \"project\": \"655f41de004adb014ac00953\",\n    \"home\": \"655f58e1befa9917f9a85e1c\",\n    \"users\": [\n        \"640f1f0642fedc38f6aa1b60\"\n    ],\n    \"listing\": \"655f58e1befa9917f9a85e19\"\n}"
+						},
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/transaction/65648cf1c07f42371a3cdb3e",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"65648cf1c07f42371a3cdb3e"
+							]
+						},
+						"description": "This endpoint allows you to update a specific transaction by making an HTTP PUT request to the provided URL. The request should include a payload in the raw request body type, which contains various fields such as _id, createdAt, updatedAt, createdBy, invoiceDate, type, status, totalAmount, and more. The payload is used to update the transaction details.\n\nThe response to the request will have a status code of 200, indicating a successful update. The response body will contain the updated transaction details, including fields such as _id, createdAt, updatedAt, createdBy, invoiceDate, type, status, totalAmount, and more.\n\nPlease note that the specific values within the request and response bodies have been masked for privacy reasons."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Download Invoice",
+			"item": [
+				{
+					"name": "Download invoice",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "application/json, text/plain, */*"
+							},
+							{
+								"key": "authorization",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2NTQzOTllODAxZGVmODcwOTY5MTU2NmEiLCJ0eXBlcyI6WyJhZG1pbiJdLCJpYXQiOjE3MDQ4NzkzNjUsImV4cCI6MTcxMjY1NTM2NX0.BJ9SHumIEUbq5jXVFiizVb8hoy_GqBPVNOlSnGjpSq0"
+							}
+						],
+						"url": {
+							"raw": "https://dashboard.thehousemonk.com/api/transaction/659e91059d40101fa0b93b7c/invoice?lang=en",
+							"protocol": "https",
+							"host": [
+								"dashboard",
+								"thehousemonk",
+								"com"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"659e91059d40101fa0b93b7c",
+								"invoice"
+							],
+							"query": [
+								{
+									"key": "lang",
+									"value": "en"
+								},
+								{
+									"key": "deliveryAddress",
+									"value": "sharun@monktechlabs.com",
+									"disabled": true
+								},
+								{
+									"key": "deliveryAddressCc",
+									"value": "sharun@thehousemonk.com",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint makes an HTTP GET request to retrieve the invoice for a specific transaction on the HouseMonk dashboard. The request should include the transaction ID and the language parameter for localization.\n\nThe response returns a status code of 200 along with the invoice details in the response body."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

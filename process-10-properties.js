@@ -323,10 +323,17 @@ async function processFirst10Properties(period) {
     const results = [];
     
     // Launch browser
-    log("🌐 Launching Chrome browser...", 'INFO');
-    const browser = await chromium.launch({ 
-        headless: false,  // VISIBLE WINDOW
-        slowMo: 800       // Slow down so you can see actions
+    log("🌐 Launching Chrome (headless) ...", 'INFO');
+    const browser = await chromium.launch({
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--single-process',
+            '--no-zygote'
+        ]
     });
     const context = await browser.newContext();
     const page = await context.newPage();
